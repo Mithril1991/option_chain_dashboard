@@ -2,6 +2,11 @@ import React, { useState, useEffect } from 'react'
 import { useHealthCheckIntegration } from '@hooks/useApiIntegration'
 import { formatDate, formatRelativeTime } from '@utils/formatters'
 
+// Simple logger for error tracking
+const logger = {
+  error: (msg: string) => console.error(`[ConfigStatus] ${msg}`),
+}
+
 // Mock data for configuration - replace with real API calls as needed
 interface SystemConfig {
   riskFreeRate: number
@@ -66,13 +71,60 @@ const SystemStatusSection: React.FC<{ config: SystemConfig }> = ({ config }) => 
 const DataModeSection: React.FC<{ mode: 'demo' | 'production' }> = ({ mode }) => {
   const [currentMode, setCurrentMode] = useState<'demo' | 'production'>(mode)
   const [isChanging, setIsChanging] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const [success, setSuccess] = useState<string | null>(null)
 
-  const handleModeToggle = (newMode: 'demo' | 'production') => {
+  /**
+   * Handle mode toggle - sends POST request to backend to update data mode.
+   *
+   * WHY THIS DESIGN:
+   * - Changes take effect immediately (no restart required)
+   * - Safe for testing: switch to demo, test, switch to production
+   * - Audit trail logged on backend with timestamps
+   * - User-friendly loading/error states
+   */
+  const handleModeToggle = async (newMode: 'demo' | 'production') => {
+    // Prevent duplicate requests while one is in flight
+    if (isChanging) return
+
     setIsChanging(true)
-    setTimeout(() => {
+    setError(null)
+    setSuccess(null)
+
+    try {
+      // Call backend endpoint to update data mode
+      const response = await fetch('http://192.168.1.16:8061/config/data-mode', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({ mode: newMode }),
+      })
+
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(
+          errorData.detail ||
+          errorData.message ||
+          `Failed to update mode: ${response.status}`
+        )
+      }
+
+      const data = await response.json()
+
+      // Update local state to match backend
       setCurrentMode(newMode)
+      setSuccess(`Successfully switched to ${newMode} mode`)
+
+      // Clear success message after 3 seconds
+      setTimeout(() => setSuccess(null), 3000)
+    } catch (err) {
+      const errorMessage = err instanceof Error ? err.message : 'Unknown error'
+      setError(errorMessage)
+      logger.error(`Mode toggle failed: ${errorMessage}`)
+    } finally {
       setIsChanging(false)
-    }, 300)
+    }
   }
 
   return (
@@ -129,11 +181,30 @@ const DataModeSection: React.FC<{ mode: 'demo' | 'production' }> = ({ mode }) =>
           </button>
         </div>
 
-        {/* Warning */}
-        <div className="p-3 bg-yellow-50 rounded-lg border border-yellow-200">
-          <p className="text-xs font-semibold text-yellow-800 mb-1">Note:</p>
-          <p className="text-xs text-yellow-700">
-            Mode changes require backend restart to take effect.
+        {/* Success Message */}
+        {success && (
+          <div className="p-3 bg-green-50 rounded-lg border border-green-200">
+            <p className="text-sm font-semibold text-green-800">{success}</p>
+            <p className="text-xs text-green-700 mt-1">
+              Changes take effect immediately for subsequent API calls.
+            </p>
+          </div>
+        )}
+
+        {/* Error Message */}
+        {error && (
+          <div className="p-3 bg-red-50 rounded-lg border border-red-200">
+            <p className="text-sm font-semibold text-red-800 mb-1">Error</p>
+            <p className="text-xs text-red-700">{error}</p>
+          </div>
+        )}
+
+        {/* Info Note */}
+        <div className="p-3 bg-blue-50 rounded-lg border border-blue-200">
+          <p className="text-xs font-semibold text-blue-800 mb-1">How it works:</p>
+          <p className="text-xs text-blue-700">
+            Mode changes take effect immediately on the backend (no restart needed).
+            Subsequent API calls will use the new data source (demo or production).
           </p>
         </div>
       </div>
@@ -446,6 +517,30 @@ const APIStatusSection: React.FC = () => {
 
 // Main ConfigStatus Component
 export const ConfigStatus: React.FC = () => {
+  const [dataMode, setDataMode] = useState<'demo' | 'production'>('demo')
+  const [loadingMode, setLoadingMode] = useState(true)
+
+  // Fetch current data mode from backend on component mount
+  useEffect(() => {
+    const fetchDataMode = async () => {
+      try {
+        const response = await fetch('http://192.168.1.16:8061/config/data-mode')
+        if (response.ok) {
+          const data = await response.json()
+          setDataMode(data.mode === 'demo' ? 'demo' : 'production')
+        }
+      } catch (err) {
+        logger.error(`Failed to fetch data mode: ${err instanceof Error ? err.message : 'Unknown error'}`)
+        // Default to demo if fetch fails
+        setDataMode('demo')
+      } finally {
+        setLoadingMode(false)
+      }
+    }
+
+    fetchDataMode()
+  }, [])
+
   // Mock configuration data
   const mockConfig: SystemConfig = {
     riskFreeRate: 0.045,
@@ -476,7 +571,7 @@ export const ConfigStatus: React.FC = () => {
       <SystemStatusSection config={mockConfig} />
 
       {/* Data Mode Section */}
-      <DataModeSection mode="demo" />
+      {!loadingMode && <DataModeSection mode={dataMode} />}
 
       {/* Configuration Summary Section */}
       <ConfigurationSummarySection config={mockConfig} />

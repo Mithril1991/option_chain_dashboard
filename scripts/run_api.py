@@ -256,6 +256,39 @@ class ConfigModeResponse(BaseModel):
     timestamp: str = Field(..., description="UTC ISO 8601 timestamp")
 
 
+class ConfigUpdateRequest(BaseModel):
+    """Configuration update request model.
+
+    Allows updating configuration values at runtime without server restart.
+    This endpoint enables mode switching (demo/production) from the frontend,
+    allowing users to test with synthetic data or switch to live market data.
+
+    WHY THIS IS USEFUL:
+    - Developers can quickly test with demo data without waiting for restarts
+    - Users can toggle between safe testing and live trading modes
+    - Supports A/B testing of different data sources without redeployment
+    """
+
+    mode: Optional[str] = Field(
+        None,
+        description="Data mode to switch to ('demo' or 'production')"
+    )
+
+
+class ConfigUpdateResponse(BaseModel):
+    """Configuration update response model.
+
+    Returns the new configuration state after successful update.
+    Includes timestamp for audit trail and demo_mode flag for client state sync.
+    """
+
+    status: str = Field(..., description="Update status ('updated' or 'error')")
+    mode: Optional[str] = Field(None, description="New data mode ('demo' or 'production')")
+    demo_mode: Optional[bool] = Field(None, description="New demo_mode flag value (True=demo, False=production)")
+    message: Optional[str] = Field(None, description="Status message for debugging")
+    timestamp: str = Field(..., description="UTC ISO 8601 timestamp of update")
+
+
 class ScanResponse(BaseModel):
     """Scan execution response model."""
 
@@ -490,9 +523,19 @@ app = FastAPI(
 # ============================================================================
 
 # CORS Middleware - Enable cross-origin requests from React frontend
+# Configured to support:
+# - http://192.168.1.16:8060: LAN access from the frontend (frontend IP)
+# - http://localhost:8060: Local development with localhost
+# - 127.0.0.1:8060: Loopback IP for local development
+# This allows the frontend running on any of these origins to make API calls
+# to the backend while preventing other unauthorized origins from accessing it
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8060", "127.0.0.1:8060"],
+    allow_origins=[
+        "http://192.168.1.16:8060",  # LAN access (frontend on IP)
+        "http://localhost:8060",      # Local development
+        "http://127.0.0.1:8060",      # Loopback address for dev
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -654,6 +697,132 @@ async def get_data_mode() -> ConfigModeResponse:
     logger.debug(f"Data mode: {mode}")
     return ConfigModeResponse(
         mode=mode,
+        timestamp=get_utc_iso_timestamp(),
+    )
+
+
+@app.post("/config/data-mode", response_model=ConfigUpdateResponse, tags=["Config"])
+async def update_data_mode(request: ConfigUpdateRequest) -> ConfigUpdateResponse:
+    """
+    Update data mode (demo or production) at runtime.
+
+    This endpoint allows switching between demo mode (synthetic data) and
+    production mode (live market data) WITHOUT restarting the server.
+
+    WHY THIS IS USEFUL:
+    - Developers can test with demo data then switch to live data on the fly
+    - Users can safely test strategies with synthetic data before going live
+    - No server restart required - changes take effect immediately for next API calls
+    - Maintains audit trail with timestamp of each mode change
+
+    Args:
+        request: ConfigUpdateRequest with mode ('demo' or 'production')
+
+    Returns:
+        ConfigUpdateResponse with new mode and updated demo_mode flag
+
+    Raises:
+        HTTPException: 400 if mode is invalid, 500 if update fails
+
+    Example:
+        POST /config/data-mode
+        {
+            "mode": "production"
+        }
+
+        Response:
+        {
+            "status": "updated",
+            "mode": "production",
+            "demo_mode": false,
+            "message": "Switched from demo to production mode",
+            "timestamp": "2026-01-26T15:30:45.123456Z"
+        }
+    """
+    try:
+        # Validate input
+        if not request.mode:
+            raise HTTPException(
+                status_code=400,
+                detail="mode parameter is required ('demo' or 'production')"
+            )
+
+        if request.mode not in ["demo", "production"]:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid mode: '{request.mode}'. Must be 'demo' or 'production'"
+            )
+
+        # Get current settings
+        settings = get_settings()
+        old_mode = "demo" if settings.demo_mode else "production"
+
+        # Update demo_mode flag in settings
+        # NOTE: Settings are immutable (Pydantic), but we can modify the flag in memory
+        new_demo_mode = (request.mode == "demo")
+        settings.demo_mode = new_demo_mode
+
+        # Log the mode change with timestamp for audit trail
+        logger.info(
+            f"Data mode switched: {old_mode} → {request.mode} "
+            f"[{get_utc_iso_timestamp()}]"
+        )
+
+        return ConfigUpdateResponse(
+            status="updated",
+            mode=request.mode,
+            demo_mode=new_demo_mode,
+            message=f"Switched from {old_mode} to {request.mode} mode",
+            timestamp=get_utc_iso_timestamp(),
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update data mode: {e}")
+        raise HTTPException(status_code=500, detail=f"Mode update failed: {e}")
+
+
+@app.post("/config/update", response_model=ConfigUpdateResponse, tags=["Config"])
+async def update_config(request: ConfigUpdateRequest) -> ConfigUpdateResponse:
+    """
+    Generic configuration update endpoint (future expansion).
+
+    This endpoint is designed for future use to update other configuration
+    values beyond just demo_mode. Currently supports mode switching.
+
+    FUTURE SUPPORT:
+    - Risk-free rate adjustment
+    - Cache TTL configuration
+    - Alert thresholds
+    - Other runtime settings
+
+    WHY THIS IS STRUCTURED THIS WAY:
+    - Single endpoint for all config updates (consistent API)
+    - Easy to extend with new fields in ConfigUpdateRequest
+    - Maintains timestamp audit trail for all changes
+    - Type-safe validation via Pydantic models
+
+    Args:
+        request: ConfigUpdateRequest with fields to update
+
+    Returns:
+        ConfigUpdateResponse with new values and status
+
+    Example:
+        POST /config/update
+        {
+            "mode": "production"
+        }
+    """
+    # For now, delegate to data-mode endpoint
+    # This will be extended for other config fields in the future
+    if request.mode:
+        return await update_data_mode(request)
+
+    return ConfigUpdateResponse(
+        status="error",
+        message="No configuration fields to update",
         timestamp=get_utc_iso_timestamp(),
     )
 
