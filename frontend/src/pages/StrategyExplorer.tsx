@@ -383,7 +383,7 @@ const LineChart: React.FC<LineChartProps> = ({ data, title }) => {
   const chartWidth = width - 80
 
   const points = data.map((d, i) => {
-    const x = (i / (data.length - 1)) * chartWidth + 50
+    const x = ((d.x - minPrice) / (maxPrice - minPrice)) * chartWidth + 50
     const y =
       height -
       50 -
