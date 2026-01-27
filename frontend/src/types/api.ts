@@ -11,11 +11,17 @@ export interface ApiResponse<T> {
 }
 
 /**
- * Health check response
+ * Health check response with complete system status
  */
 export interface HealthResponse {
-  status: string
+  status: string  // 'ok' or 'error'
   timestamp: string
+  message?: string
+  last_scan_time?: string  // ISO 8601 timestamp of last completed scan
+  uptime_seconds?: number
+  data_mode?: string  // 'demo' or 'production'
+  scan_status?: string  // 'idle', 'running', 'completed', 'error'
+  api_calls_today?: number
 }
 
 /**

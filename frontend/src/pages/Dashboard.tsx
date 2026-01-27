@@ -25,8 +25,8 @@ export const Dashboard: React.FC = () => {
   // Calculate metrics
   const totalAlertsToday = alerts?.length || 0
   const highScoreAlerts = alerts?.filter((a) => a.score > 75).length || 0
-  const systemHealthy = health?.status === 'healthy'
-  const isApiConnected = !healthError && health?.status !== 'unhealthy'
+  const systemHealthy = health?.status === 'ok'
+  const isApiConnected = !healthError && health?.status === 'ok'
 
   // Handle scan trigger
   const handleTriggerScan = async () => {
@@ -229,17 +229,22 @@ export const Dashboard: React.FC = () => {
           <div>
             <p className="text-sm font-medium text-gray-600 mb-2">Last Scan</p>
             <p className="text-lg text-gray-900">
-              {health?.timestamp
-                ? formatDate(health.timestamp, 'long')
+              {health?.last_scan_time
+                ? formatRelativeTime(health.last_scan_time)
                 : 'Never'}
             </p>
+            {health?.scan_status && health.scan_status !== 'idle' && (
+              <p className="text-xs text-gray-500 mt-1">
+                Status: {health.scan_status}
+              </p>
+            )}
           </div>
 
           {/* Data Mode */}
           <div>
             <p className="text-sm font-medium text-gray-600 mb-2">Data Mode</p>
             <p className="text-lg font-semibold text-blue-600">
-              {health?.status === 'healthy' ? 'Production' : 'Demo'}
+              {health?.data_mode ? (health.data_mode === 'demo' ? 'Demo' : 'Production') : 'Unknown'}
             </p>
           </div>
 
@@ -256,17 +261,30 @@ export const Dashboard: React.FC = () => {
                 {isApiConnected ? 'Connected' : 'Disconnected'}
               </p>
             </div>
+            {health?.api_calls_today !== undefined && (
+              <p className="text-xs text-gray-500 mt-1">
+                API calls today: {health.api_calls_today}
+              </p>
+            )}
           </div>
         </div>
 
         {/* Trigger Scan Button */}
-        <button
-          onClick={handleTriggerScan}
-          disabled={scanLoading}
-          className="btn-primary w-full px-4 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
-        >
-          {scanLoading ? 'Scanning...' : 'Trigger New Scan'}
-        </button>
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={handleTriggerScan}
+            disabled={scanLoading}
+            className="btn-primary w-full px-4 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
+          >
+            {scanLoading ? 'Triggering Scan...' : 'Trigger New Scan'}
+          </button>
+          {scanError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
+              <p className="font-semibold">Scan Trigger Failed</p>
+              <p>{scanError.message}</p>
+            </div>
+          )}
+        </div>
       </section>
     </div>
   )

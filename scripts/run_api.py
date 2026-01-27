@@ -233,11 +233,21 @@ logger = get_logger(__name__)
 
 
 class HealthResponse(BaseModel):
-    """Health check response model."""
+    """Health check response model with complete system status.
+
+    Provides comprehensive health information including last scan time, uptime,
+    data mode, scan status, and API call budget. Used by Dashboard to display
+    system status, mode, connectivity, and recent scan activity.
+    """
 
     status: str = Field(..., description="Status indicator ('ok' or 'error')")
     timestamp: str = Field(..., description="UTC ISO 8601 timestamp")
     message: Optional[str] = Field(None, description="Optional status message")
+    last_scan_time: Optional[str] = Field(None, description="UTC ISO 8601 timestamp of last completed scan")
+    uptime_seconds: int = Field(0, description="Process uptime in seconds")
+    data_mode: str = Field("demo", description="Data mode ('demo' or 'production')")
+    scan_status: str = Field("idle", description="Current scan status ('idle', 'running', 'completed', 'error')")
+    api_calls_today: int = Field(0, description="Number of API calls made today")
 
 
 class ConfigReloadResponse(BaseModel):
@@ -666,33 +676,79 @@ async def general_exception_handler(request: Request, exc: Exception):
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
 async def health_check() -> HealthResponse:
     """
-    Health check endpoint.
+    Health check endpoint with complete system status.
+
+    Returns comprehensive health information including:
+    - Database connectivity (ok/error)
+    - Last scan completion time
+    - Current data mode (demo/production)
+    - Current scan status
+    - API call budget for today
 
     Returns:
-        HealthResponse with status and timestamp
+        HealthResponse with full system status
 
     Example:
         GET /health
         {
             "status": "ok",
-            "timestamp": "2026-01-26T15:30:45.123456Z"
+            "timestamp": "2026-01-26T15:30:45.123456Z",
+            "last_scan_time": "2026-01-26T15:00:00Z",
+            "uptime_seconds": 3600,
+            "data_mode": "production",
+            "scan_status": "idle",
+            "api_calls_today": 45
         }
     """
     try:
         # Try to verify database connection
         if not scan_repo:
             raise RuntimeError("Database not initialized")
-        logger.debug("Health check passed")
+
+        # Get last completed scan timestamp
+        latest_scans = load_scans_from_json(limit=1)
+        last_scan_time = None
+        if latest_scans and latest_scans[0].get("status") == "completed":
+            last_scan_time = latest_scans[0].get("created_at")
+
+        # Get current data mode
+        settings = get_settings()
+        data_mode = "demo" if settings.demo_mode else "production"
+
+        # Get scan status (from most recent scan)
+        scan_status = "idle"
+        if latest_scans:
+            scan_status = latest_scans[0].get("status", "idle")
+
+        # Calculate API calls today (placeholder - could be tracked in scheduler_state)
+        api_calls_today = 0
+        # TODO: Query scheduler_state table for actual api_calls_today count
+
+        # Calculate process uptime (placeholder - could track in database)
+        uptime_seconds = 0
+        # TODO: Query process start time or cache in database
+
+        logger.debug(f"Health check: status=ok, mode={data_mode}, scan_status={scan_status}")
+
         return HealthResponse(
             status="ok",
             timestamp=get_utc_iso_timestamp(),
+            last_scan_time=last_scan_time,
+            uptime_seconds=uptime_seconds,
+            data_mode=data_mode,
+            scan_status=scan_status,
+            api_calls_today=api_calls_today,
         )
     except Exception as e:
         logger.error(f"Health check failed: {e}")
+        # Return error status but with default values for other fields
+        settings = get_settings()
         return HealthResponse(
             status="error",
             timestamp=get_utc_iso_timestamp(),
             message=str(e),
+            data_mode="demo" if settings.demo_mode else "production",
+            scan_status="error",
         )
 
 
