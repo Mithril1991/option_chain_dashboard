@@ -53,7 +53,7 @@ from functions.db.repositories import (
 )
 from functions.market.provider_base import MarketDataProvider
 from functions.compute.feature_engine import compute_features
-from functions.detect.base import DetectorRegistry, AlertCandidate
+from functions.detect import DetectorRegistry, AlertCandidate, get_registry
 from functions.scoring.scorer import AlertScorer
 from functions.scoring.throttler import AlertThrottler
 from functions.risk.gate import RiskGate
@@ -263,10 +263,12 @@ async def run_scan(
                 except Exception as e:
                     logger.error(f"Failed to save feature snapshot for {ticker}: {e}")
 
-                # Run all detectors
-                logger.debug(f"Running {len(DetectorRegistry.get_registry().get_all_detectors())} detectors")
-                detector_count = 0
-                for detector_class in DetectorRegistry.get_registry().get_all_detectors():
+        detector_registry = get_registry()
+
+        # Run all detectors
+        logger.debug(f"Running {len(detector_registry.get_all_detectors())} detectors")
+        detector_count = 0
+        for detector_class in detector_registry.get_all_detectors():
                     try:
                         detector = detector_class()
                         alert_candidate = detector.detect_safe(features)
