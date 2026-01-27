@@ -330,14 +330,21 @@ class ScansHistoryResponse(BaseModel):
 
 
 class AlertResponse(BaseModel):
-    """Single alert response model."""
+    """Single alert response model.
+
+    IMPORTANT: This model must match frontend/src/types/api.ts AlertResponse interface.
+    Frontend expects: id, ticker, detector_name, score, metrics, explanation, strategies, created_at
+
+    Note: scan_id is excluded from response to match frontend contract (frontend doesn't need it).
+    """
 
     id: int = Field(..., description="Alert ID")
-    scan_id: int = Field(..., description="Scan ID that generated alert")
     ticker: str = Field(..., description="Stock ticker symbol")
     detector_name: str = Field(..., description="Name of detector that generated alert")
     score: float = Field(..., description="Alert score (0-100)")
-    alert_data: Dict[str, Any] = Field(..., description="Alert details and metrics")
+    metrics: Dict[str, Any] = Field(..., description="Alert details and metrics (raw detector output)")
+    explanation: Dict[str, Any] = Field(default_factory=dict, description="Explanation of alert signal")
+    strategies: List[str] = Field(default_factory=list, description="Recommended strategies for this alert")
     created_at: str = Field(..., description="UTC ISO 8601 creation timestamp")
 
 
@@ -350,28 +357,40 @@ class AlertsResponse(BaseModel):
 
 
 class OptionContractResponse(BaseModel):
-    """Single option contract response."""
+    """Single option contract response.
 
-    strike: float
-    option_type: str
-    bid: float
-    ask: float
-    volume: int
-    open_interest: int
-    implied_volatility: float
-    delta: Optional[float] = None
-    gamma: Optional[float] = None
-    vega: Optional[float] = None
-    theta: Optional[float] = None
-    rho: Optional[float] = None
+    IMPORTANT: This model must match frontend/src/types/api.ts OptionContract interface.
+    Frontend expects camelCase field names and includes expirationDate and lastPrice.
+    """
+
+    strike: float = Field(..., description="Strike price")
+    bid: float = Field(..., description="Current bid price")
+    ask: float = Field(..., description="Current ask price")
+    lastPrice: float = Field(..., description="Last trade price")
+    volume: int = Field(..., description="Trading volume")
+    openInterest: int = Field(..., alias="open_interest", description="Open interest")
+    impliedVolatility: float = Field(..., alias="implied_volatility", description="Implied volatility")
+    delta: Optional[float] = Field(None, description="Option delta")
+    gamma: Optional[float] = Field(None, description="Option gamma")
+    theta: Optional[float] = Field(None, description="Option theta (time decay)")
+    vega: Optional[float] = Field(None, description="Option vega (volatility sensitivity)")
+    rho: Optional[float] = Field(None, description="Option rho (interest rate sensitivity)")
+    expirationDate: str = Field(..., description="Option expiration date (YYYY-MM-DD)")
+
+    class Config:
+        """Pydantic config for response serialization."""
+        populate_by_name = True  # Allow both field name and alias during parsing
 
 
 class ChainSnapshotResponse(BaseModel):
-    """Options chain snapshot response model."""
+    """Options chain snapshot response model.
+
+    IMPORTANT: This model must match frontend/src/types/api.ts ChainSnapshot interface.
+    Frontend expects: ticker, expiration, calls[], puts[]
+    Extra fields like timestamp and underlying_price are excluded to match frontend contract.
+    """
 
     ticker: str = Field(..., description="Stock ticker symbol")
-    timestamp: str = Field(..., description="UTC ISO 8601 snapshot timestamp")
-    underlying_price: float = Field(..., description="Current underlying stock price")
     expiration: str = Field(..., description="Option expiration date (YYYY-MM-DD)")
     calls: List[OptionContractResponse] = Field(..., description="Call option contracts")
     puts: List[OptionContractResponse] = Field(..., description="Put option contracts")
@@ -1054,11 +1073,12 @@ async def get_latest_alerts(
             "alerts": [
                 {
                     "id": 1,
-                    "scan_id": 42,
                     "ticker": "AAPL",
                     "detector_name": "volume_spike",
                     "score": 85.5,
-                    "alert_data": {...},
+                    "metrics": {...},
+                    "explanation": {},
+                    "strategies": [],
                     "created_at": "2026-01-26T15:30:00Z"
                 }
             ],
@@ -1074,11 +1094,12 @@ async def get_latest_alerts(
         alert_responses = [
             AlertResponse(
                 id=alert.get("id", 0),
-                scan_id=alert.get("scan_id", 0),
                 ticker=alert.get("ticker", ""),
                 detector_name=alert.get("detector_name", ""),
                 score=alert.get("score", 0),
-                alert_data=alert.get("alert_data", alert.get("alert_json", {})) if isinstance(alert.get("alert_data"), dict) else json.loads(alert.get("alert_json", "{}")),
+                metrics=alert.get("alert_data", alert.get("alert_json", {})) if isinstance(alert.get("alert_data"), dict) else json.loads(alert.get("alert_json", "{}")),
+                explanation={},  # Can be extended with LLM explanations in future
+                strategies=[],   # Can be mapped from detector type in future
                 created_at=alert.get("created_at", get_utc_iso_timestamp()),
             )
             for alert in alerts
@@ -1153,11 +1174,12 @@ async def filter_alerts(
         alert_responses = [
             AlertResponse(
                 id=alert.get("id", 0),
-                scan_id=alert.get("scan_id", 0),
                 ticker=alert.get("ticker", ""),
                 detector_name=alert.get("detector_name", ""),
                 score=alert.get("score", 0),
-                alert_data=alert.get("alert_data", alert.get("alert_json", {})) if isinstance(alert.get("alert_data"), dict) else json.loads(alert.get("alert_json", "{}")),
+                metrics=alert.get("alert_data", alert.get("alert_json", {})) if isinstance(alert.get("alert_data"), dict) else json.loads(alert.get("alert_json", "{}")),
+                explanation={},  # Can be extended with LLM explanations in future
+                strategies=[],   # Can be mapped from detector type in future
                 created_at=alert.get("created_at", get_utc_iso_timestamp()),
             )
             for alert in alerts
@@ -1214,11 +1236,12 @@ async def get_ticker_alerts(
         alert_responses = [
             AlertResponse(
                 id=alert.get("id", 0),
-                scan_id=alert.get("scan_id", 0),
                 ticker=alert.get("ticker", ""),
                 detector_name=alert.get("detector_name", ""),
                 score=alert.get("score", 0),
-                alert_data=alert.get("alert_data", alert.get("alert_json", {})) if isinstance(alert.get("alert_data"), dict) else json.loads(alert.get("alert_json", "{}")),
+                metrics=alert.get("alert_data", alert.get("alert_json", {})) if isinstance(alert.get("alert_data"), dict) else json.loads(alert.get("alert_json", "{}")),
+                explanation={},  # Can be extended with LLM explanations in future
+                strategies=[],   # Can be mapped from detector type in future
                 created_at=alert.get("created_at", get_utc_iso_timestamp()),
             )
             for alert in alerts
