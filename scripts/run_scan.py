@@ -314,12 +314,14 @@ async def run_scan(
                         # CHECK THROTTLES
                         # ====================================================
 
-                        should_throttle, throttle_reason = throttler.should_alert(
+                        should_throttle = throttler.should_alert(
                             ticker=ticker,
-                            score=alert_candidate.score
+                            detector_name=alert_candidate.detector_name,
+                            current_score=alert_candidate.score
                         )
 
                         if not should_throttle:
+                            throttle_reason = throttler.get_last_throttle_reason() or "throttled by policy"
                             logger.info(f"Alert throttled for {ticker}: {throttle_reason}")
                             continue
 
@@ -361,7 +363,9 @@ async def run_scan(
                         # Record alert for throttling
                         throttler.record_alert(
                             ticker=ticker,
-                            score=alert_candidate.score
+                            detector_name=alert_candidate.detector_name,
+                            score=alert_candidate.score,
+                            alert_id=None,
                         )
 
                     except Exception as e:

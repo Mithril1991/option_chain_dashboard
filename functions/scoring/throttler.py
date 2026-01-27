@@ -137,6 +137,7 @@ class AlertThrottler:
         # Initialize repositories
         self.cooldown_repo = CooldownRepository()
         self.alert_repo = AlertRepository()
+        self._last_throttle_reason: str = ""
 
         logger.info(
             f"Initialized AlertThrottler: cooldown_hours={self.cooldown_hours}, "
@@ -199,6 +200,7 @@ class AlertThrottler:
             )
 
             if is_on_cooldown:
+                self._last_throttle_reason = f"In cooldown ({hours_remaining:.1f}h remaining)"
                 logger.debug(
                     f"Alert throttled for {ticker}: in cooldown ({hours_remaining:.1f} hours remaining)"
                 )
@@ -208,12 +210,14 @@ class AlertThrottler:
             daily_count = self.get_daily_count()
 
             if daily_count >= self.max_alerts_per_day:
+                self._last_throttle_reason = f"Daily limit reached ({daily_count}/{self.max_alerts_per_day})"
                 logger.debug(
                     f"Alert throttled for {ticker}: daily limit reached ({daily_count}/{self.max_alerts_per_day})"
                 )
                 return False
 
             # Both checks passed
+            self._last_throttle_reason = ""
             logger.debug(
                 f"Alert ALLOWED for {ticker}: not in cooldown, "
                 f"daily count {daily_count}/{self.max_alerts_per_day}"
@@ -227,8 +231,12 @@ class AlertThrottler:
             # Conservative: fail open (allow alert) if error occurs
             return True
 
+    def get_last_throttle_reason(self) -> str:
+        """Return the most recent throttling reason for logging."""
+        return self._last_throttle_reason
+
     def record_alert(
-        self, ticker: str, detector_name: str, score: float, alert_id: int
+        self, ticker: str, detector_name: str, score: float, alert_id: Optional[int] = None
     ) -> bool:
         """
         Record that an alert was sent for tracking and throttling.
