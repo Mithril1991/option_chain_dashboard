@@ -49,6 +49,17 @@ export interface AlertResponse {
 }
 
 /**
+ * Lightweight alert summary for dashboard (no heavy metrics)
+ */
+export interface AlertSummaryResponse {
+  id: number
+  ticker: string
+  detector_name: string
+  score: number
+  created_at: string
+}
+
+/**
  * Option contract in a chain snapshot
  */
 export interface OptionContract {

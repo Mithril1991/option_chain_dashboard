@@ -1,18 +1,21 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useHealthCheckIntegration, useLatestAlertsIntegration, useTriggerScanIntegration } from '@hooks/useApiIntegration'
+import { useHealthCheckIntegration, useTriggerScanIntegration } from '@hooks/useApiIntegration'
+import { useLatestAlertsSummary } from '@hooks/useApi'
 import { MetricsRow } from '@components/MetricsRow'
 import { AlertCard } from '@components/AlertCard'
 import { formatDate, formatRelativeTime } from '@utils/formatters'
-import type { AlertResponse } from '@types/api'
+import type { AlertSummaryResponse } from '@types/api'
 
 export const Dashboard: React.FC = () => {
   const navigate = useNavigate()
-  const [displayAlerts, setDisplayAlerts] = useState<AlertResponse[]>([])
+  const [displayAlerts, setDisplayAlerts] = useState<AlertSummaryResponse[]>([])
+  const [scanSuccess, setScanSuccess] = useState(false)
+  const [scanMessage, setScanMessage] = useState('')
 
   // API Integration Hooks
-  const { health, loading: healthLoading, error: healthError } = useHealthCheckIntegration()
-  const { alerts, loading: alertsLoading, error: alertsError } = useLatestAlertsIntegration(20)
+  const { health, loading: healthLoading, error: healthError, refetch: refetchHealth } = useHealthCheckIntegration()
+  const { data: alerts, loading: alertsLoading, error: alertsError, refetch: refetchAlerts } = useLatestAlertsSummary(20)
   const { triggerScan, loading: scanLoading, error: scanError } = useTriggerScanIntegration()
 
   // Update display alerts when fresh data arrives
@@ -28,12 +31,31 @@ export const Dashboard: React.FC = () => {
   const systemHealthy = health?.status === 'ok'
   const isApiConnected = !healthError && health?.status === 'ok'
 
-  // Handle scan trigger
+  // Handle scan trigger with success feedback and refetch
   const handleTriggerScan = async () => {
+    setScanSuccess(false)
+    setScanMessage('')
     try {
-      await triggerScan()
+      const result = await triggerScan()
+      if (result) {
+        setScanSuccess(true)
+        setScanMessage('Scan triggered successfully! Refreshing data...')
+
+        // Refetch health and alerts after successful scan
+        setTimeout(() => {
+          refetchHealth()
+          refetchAlerts()
+        }, 1000)
+
+        // Clear success message after 5 seconds
+        setTimeout(() => {
+          setScanSuccess(false)
+          setScanMessage('')
+        }, 5000)
+      }
     } catch (err) {
       console.error('Failed to trigger scan:', err)
+      setScanSuccess(false)
     }
   }
 
@@ -74,6 +96,13 @@ export const Dashboard: React.FC = () => {
         <h1 className="text-4xl font-bold text-gray-900">Option Chain Dashboard</h1>
         <p className="text-gray-600 mt-2">Overview</p>
       </div>
+
+      {/* Success Messages */}
+      {scanSuccess && (
+        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-800">
+          <p className="font-semibold">✓ {scanMessage}</p>
+        </div>
+      )}
 
       {/* Error Messages */}
       {healthError && (
