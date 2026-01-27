@@ -39,6 +39,7 @@ import asyncio
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 from contextlib import asynccontextmanager
+from pathlib import Path as PathlibPath
 
 from fastapi import FastAPI, Query, Path, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -50,7 +51,6 @@ from functions.util.logging_setup import setup_logging, get_logger
 from functions.config.loader import get_config_manager
 from functions.config.settings import get_settings
 from functions.db.connection import init_db, get_db
-from pathlib import Path as PathlibPath
 
 # Initialize database FIRST before importing repositories
 # Note: When run as subprocess from main.py, database is already initialized.
