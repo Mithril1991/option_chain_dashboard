@@ -1264,6 +1264,65 @@ async def get_ticker_alerts(
 # ============================================================================
 
 
+@app.get("/options/{ticker}/expirations", tags=["Options"])
+async def get_option_expirations(
+    ticker: str = Path(..., description="Stock ticker symbol")
+) -> dict[str, list[str]]:
+    """
+    Get available expiration dates for a ticker's options.
+
+    Returns list of ISO 8601 date strings representing available option
+    expiration dates for the given ticker, sorted in ascending order.
+
+    Args:
+        ticker: Stock ticker symbol (e.g., "AAPL")
+
+    Returns:
+        Dictionary with 'expirations' list of ISO 8601 date strings
+
+    Example:
+        GET /options/AAPL/expirations
+        {
+            "expirations": ["2026-02-20", "2026-03-20", "2026-04-17"],
+            "timestamp": "2026-01-26T15:30:00Z"
+        }
+    """
+    try:
+        # Load chain snapshots and extract unique expirations
+        chains = load_chains_from_json(ticker=ticker, limit=100)  # Load up to 100 chains
+
+        if not chains:
+            logger.info(f"No chain snapshots available for ticker: {ticker}")
+            return {
+                "expirations": [],
+                "timestamp": get_utc_iso_timestamp()
+            }
+
+        # Extract unique expirations and sort
+        expirations_set = set()
+        for chain in chains:
+            exp = chain.get("expiration")
+            if exp:
+                expirations_set.add(exp)
+
+        # Sort expirations in ascending order (nearest first)
+        expirations = sorted(list(expirations_set))
+
+        logger.debug(f"Found {len(expirations)} expirations for {ticker}: {expirations}")
+
+        return {
+            "expirations": expirations,
+            "timestamp": get_utc_iso_timestamp()
+        }
+    except Exception as e:
+        logger.error(f"Failed to get expirations for {ticker}: {e}")
+        return {
+            "expirations": [],
+            "timestamp": get_utc_iso_timestamp(),
+            "error": str(e)
+        }
+
+
 @app.get("/options/{ticker}/snapshot", response_model=ChainSnapshotResponse, tags=["Options"])
 async def get_options_snapshot(
     ticker: str = Path(..., description="Stock ticker symbol")

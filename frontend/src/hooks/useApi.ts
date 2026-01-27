@@ -266,3 +266,43 @@ export const useTriggerScan = (): {
 } => {
   return useApiPost<never, ScanResponse>('/scan/run')
 }
+
+/**
+ * Fetch available option expirations for a ticker
+ */
+export const useOptionExpirations = (ticker: string): UseApiState<string[]> & { refetch: () => Promise<void> } => {
+  const [state, setState] = useState<UseApiState<string[]>>({
+    data: null,
+    loading: false,
+    error: null
+  })
+  const apiClient = require('@utils/apiClient').default
+
+  const fetchExpirations = useCallback(async () => {
+    if (!ticker) {
+      setState({ data: [], loading: false, error: null })
+      return
+    }
+
+    setState(prev => ({ ...prev, loading: true, error: null }))
+    try {
+      const response = await apiClient.get<any>(`/options/${ticker}/expirations`)
+      const expirations = response.data?.expirations || []
+      setState({ data: expirations, loading: false, error: null })
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error('Failed to load expirations')
+      setState({ data: [], loading: false, error })
+    }
+  }, [ticker])
+
+  useEffect(() => {
+    if (ticker) {
+      fetchExpirations()
+    }
+  }, [ticker, fetchExpirations])
+
+  return {
+    ...state,
+    refetch: fetchExpirations
+  }
+}

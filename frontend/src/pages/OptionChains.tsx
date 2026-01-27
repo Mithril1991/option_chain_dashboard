@@ -1,5 +1,6 @@
 import React, { useState, useMemo } from 'react'
 import { useOptionChainIntegration, useLatestAlertsIntegration } from '@hooks/useApiIntegration'
+import { useOptionExpirations } from '@hooks/useApi'
 import { useUIStore } from '@store/uiStore'
 import { formatRelativeTime, formatPrice, formatPercent, formatVolume } from '@utils/formatters'
 import type { OptionContract } from '@types/api'
@@ -38,18 +39,15 @@ export const OptionChains: React.FC = () => {
   // Fetch option chain
   const { chain, loading, error, refetch } = useOptionChainIntegration(ticker)
 
-  // Get expirations from alerts data
-  const expirations = useMemo(() => {
-    if (!chain) return []
-    return Array.from(new Set([chain.expiration]))
-  }, [chain])
+  // Fetch available expirations for ticker
+  const { data: expirationsList = [] } = useOptionExpirations(ticker)
 
-  // Set default expiration on chain load
+  // Set default expiration on expirations load
   React.useEffect(() => {
-    if (expirations.length > 0 && !selectedExpiration) {
-      setSelectedExpiration(expirations[0])
+    if (expirationsList && expirationsList.length > 0 && !selectedExpiration) {
+      setSelectedExpiration(expirationsList[0])
     }
-  }, [expirations, selectedExpiration])
+  }, [expirationsList, selectedExpiration])
 
   // Calculate DTE (Days To Expiration)
   const calculateDTE = (expirationDate: string): number => {
@@ -245,13 +243,17 @@ export const OptionChains: React.FC = () => {
           <select
             value={selectedExpiration || ''}
             onChange={(e) => setSelectedExpiration(e.target.value)}
-            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+            className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500 text-gray-900"
           >
-            {expirations.map((exp) => (
-              <option key={exp} value={exp}>
-                {exp} (DTE: {calculateDTE(exp)})
-              </option>
-            ))}
+            {expirationsList && expirationsList.length > 0 ? (
+              expirationsList.map((exp: string) => (
+                <option key={exp} value={exp}>
+                  {exp} (DTE: {calculateDTE(exp)})
+                </option>
+              ))
+            ) : (
+              <option value="">No expirations available</option>
+            )}
           </select>
         </div>
       </div>
