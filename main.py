@@ -72,6 +72,7 @@ from functions.config.loader import get_config_manager
 from functions.config.settings import get_settings
 from scripts.scheduler_engine import SchedulerEngine
 from scripts.run_scan import run_scan
+from functions.market.demo_provider import DemoMarketDataProvider
 
 # ============================================================================
 # MODULE-LEVEL GLOBALS
@@ -294,8 +295,14 @@ async def start_scheduler_engine() -> asyncio.Task:
         config_mgr = get_config_manager()
         config = config_mgr.config
 
-        # Create scheduler
-        scheduler = SchedulerEngine(config=config, scan_runner=run_scan)
+        # Create scheduler with demo market data provider (TODO: replace with real provider)
+        provider = DemoMarketDataProvider()
+        logger.info("Using DemoMarketDataProvider for scheduled scans")
+        scheduler = SchedulerEngine(
+            config=config,
+            scan_runner=run_scan,
+            provider=provider,
+        )
 
         # Create task for run_forever (will run indefinitely)
         task = asyncio.create_task(scheduler.run_forever())

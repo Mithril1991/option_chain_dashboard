@@ -186,10 +186,14 @@ async def main():
     config_manager = get_config_manager()
     config = config_manager.get_config()
     
-    # Create scheduler
+    # Create scheduler with demo data provider (replace with live provider as needed)
+    from functions.market.demo_provider import DemoMarketDataProvider
+
+    provider = DemoMarketDataProvider()
     scheduler = SchedulerEngine(
         config=config,
-        scan_runner=run_scan
+        scan_runner=run_scan,
+        provider=provider
     )
     
     # Run forever (blocks)
@@ -428,4 +432,3 @@ Potential improvements for future versions:
 - [Exponential Backoff Pattern](https://en.wikipedia.org/wiki/Exponential_backoff)
 - [Rate Limiting Strategies](https://cloud.google.com/architecture/rate-limiting-strategies-techniques)
 - [State Machines](https://en.wikipedia.org/wiki/Finite-state_machine)
-
