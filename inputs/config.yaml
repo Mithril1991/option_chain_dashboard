@@ -1,0 +1,101 @@
+# Option Chain Dashboard Configuration
+# Main configuration file for the application
+
+# Demo/Production mode
+demo_mode: true
+
+# Detectors configuration
+detectors:
+  low_iv:
+    enabled: true
+    iv_percentile_threshold: 25.0
+
+  rich_premium:
+    enabled: true
+    iv_percentile_threshold: 75.0
+
+  earnings_crush:
+    enabled: true
+    iv_percentile_threshold: 60.0
+    max_days_to_earnings: 14
+
+  term_kink:
+    enabled: true
+    normal_contango_min: 0.98
+    normal_contango_max: 1.15
+
+  skew_anomaly:
+    enabled: true
+    anomaly_threshold: 0.15
+
+  regime_shift:
+    enabled: true
+    proximity_threshold: 0.03
+
+# Scoring configuration
+scoring:
+  cooldown_hours: 24
+  max_alerts_per_day: 5
+
+# Risk gate configuration
+risk:
+  max_margin_usage_pct: 50.0
+  max_concentration_pct: 5.0
+  min_cash_buffer_pct: 10.0
+
+# Scheduler configuration
+scheduler:
+  collection_times_et:
+    - "16:15"  # 4:15 PM post-market close
+  max_calls_per_hour: 250
+  max_calls_per_day: 2000
+  flush_threshold: 50
+  check_interval_sec: 10
+
+# Scan configuration
+scan:
+  liquidity:
+    min_volume: 100
+    max_spread_pct: 3.0
+  historical_lookback_days: 365
+
+# Risk-free rate for options pricing
+risk_free_rate: 0.05
+
+# Logging
+log_level: "INFO"
+log_file: "logs/option_chain_dashboard.log"
+log_max_bytes: 10485760  # 10 MB
+log_backup_count: 5
+
+# API configuration
+api:
+  host: "0.0.0.0"
+  port: 8061
+  reload: false
+
+# Demo watchlist (only used in demo mode)
+watchlist:
+  - "SOFI"
+  - "AMD"
+  - "NVDA"
+  - "TSLA"
+  - "AAPL"
+
+# Theses (manual investment thesis per ticker)
+theses:
+  SOFI:
+    name: "SoFi Technologies"
+    summary: "Fintech platform undergoing transition to comprehensive financial services"
+  AMD:
+    name: "Advanced Micro Devices"
+    summary: "Data center and AI chip leader, cyclical business"
+  NVDA:
+    name: "NVIDIA"
+    summary: "GPU leader benefiting from AI boom"
+  TSLA:
+    name: "Tesla"
+    summary: "EV and energy company with high volatility"
+  AAPL:
+    name: "Apple"
+    summary: "Large-cap tech, defensive characteristics"

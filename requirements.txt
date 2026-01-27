@@ -1,0 +1,29 @@
+# FastAPI and web framework
+fastapi==0.104.1
+uvicorn[standard]==0.24.0
+
+# Data fetching and manipulation
+yfinance==0.2.32
+pandas~=2.1.0
+numpy~=1.24.0
+
+# Database
+duckdb==0.9.2
+
+# Options mathematics and scientific computing
+scipy~=1.11.0
+
+# Configuration and validation
+pydantic==2.5.0
+pydantic-settings==2.1.0
+python-dotenv==1.0.0
+
+# Utilities
+pytz==2023.3.post1
+requests==2.31.0
+pyyaml==6.0.1
+
+# Testing
+pytest==7.4.3
+pytest-cov==4.1.0
+pytest-asyncio==0.21.1

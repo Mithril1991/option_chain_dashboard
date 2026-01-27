@@ -1,0 +1,87 @@
+# Python virtual environments
+venv/
+env/
+ENV/
+.venv/
+*.egg-info/
+dist/
+build/
+
+# Python cache and compiled files
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+
+# IDE and editor files
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+.DS_Store
+.env.local
+.env.*.local
+
+# Project-specific directories
+.env
+.env.prod
+.env.staging
+data/
+logs/
+historical_data/
+*.log
+*.log.*
+
+# Test and coverage
+.pytest_cache/
+.coverage
+.coverage.*
+htmlcov/
+.tox/
+.hypothesis/
+
+# Database files
+*.db
+*.duckdb
+*.sqlite
+*.sqlite3
+
+# Temporary files
+tmp/
+temp/
+*.tmp
+*.bak
+
+# Streamlit cache
+.streamlit/cache/
+.streamlit/*.json
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# API keys and secrets (never commit)
+*.key
+*.pem
+credentials.json
+secrets.json
+
+# IDE-specific Python/Jupyter files
+.ipynb_checkpoints/
+*.ipynb
+*.pkl
+
+# Any environment-specific overrides
+local_settings.py
+
+# Build and distribution
+dist/
+build/
+*.egg-info/
+.eggs/
+
+# Optional local development files
+.claude_session
+*.session
