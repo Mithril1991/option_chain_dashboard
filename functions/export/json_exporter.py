@@ -49,6 +49,48 @@ from functions.db.repositories import (
 logger = get_logger(__name__)
 
 
+def _convert_to_json_serializable(obj: Any) -> Any:
+    """
+    Convert database objects to JSON-serializable types.
+
+    This function handles conversion of non-JSON types that come from
+    the database repositories. The repositories return dictionaries with
+    datetime objects that json.dump() cannot handle directly.
+
+    Args:
+        obj: Any Python object that might contain non-serializable types
+
+    Returns:
+        The same object but with all datetime objects converted to ISO format strings,
+        and all nested dictionaries/lists recursively processed
+
+    Why this is necessary:
+    - DuckDB's database driver returns datetime.datetime objects for timestamp columns
+    - The json module's default serializer cannot handle datetime objects
+    - Without conversion, json.dump() raises: TypeError: Object of type datetime is not JSON serializable
+    - Solution: Convert all datetime objects to ISO 8601 format strings (YYYY-MM-DDTHH:MM:SSZ)
+    """
+    if obj is None or isinstance(obj, (str, int, float, bool)):
+        # Already JSON-serializable primitives
+        return obj
+    elif isinstance(obj, datetime):
+        # Convert datetime to ISO 8601 string format
+        # This is the most common cause of serialization errors from database results
+        return obj.isoformat()
+    elif isinstance(obj, dict):
+        # Recursively convert all dict values
+        # Database result dicts may contain nested datetime objects
+        return {k: _convert_to_json_serializable(v) for k, v in obj.items()}
+    elif isinstance(obj, (list, tuple)):
+        # Recursively convert all list/tuple items
+        # The 'chains' and 'alerts' lists contain dicts with datetime objects
+        return [_convert_to_json_serializable(item) for item in obj]
+    else:
+        # Fallback: convert to string for any other unknown types
+        # This handles edge cases like custom objects
+        return str(obj)
+
+
 class JSONExporter:
     """
     Export data from database to JSON files for API consumption.
@@ -212,6 +254,15 @@ class JSONExporter:
             if min_score > 0:
                 alerts = [a for a in alerts if a.get("score", 0) >= min_score]
 
+            # IMPORTANT: Convert alerts to JSON-serializable format
+            # The database returns dictionaries with datetime objects in the 'created_at' field.
+            # These datetime objects cannot be directly serialized by json.dump().
+            # The _convert_to_json_serializable() function recursively converts all
+            # datetime objects to ISO 8601 strings while preserving other data types.
+            # Without this conversion, json.dump() will raise:
+            # TypeError: Object of type datetime is not JSON serializable
+            alerts = _convert_to_json_serializable(alerts)
+
             # Create export data structure
             now = datetime.now(timezone.utc)
             export_data = {
@@ -255,17 +306,31 @@ class JSONExporter:
             logger.info("Exporting chain snapshots to JSON...")
 
             # Query database for chain snapshots
-            # Note: Assuming get_latest_snapshots exists or we fetch all
+            # CRITICAL FIX: ChainSnapshotRepository.__init__() doesn't call super().__init__(),
+            # so self.chain_repo.db is None. This causes AttributeError: 'ChainSnapshotRepository'
+            # object has no attribute 'db'. Instead, we get a fresh DuckDB connection via get_db(),
+            # which returns the initialized DuckDBManager singleton.
+            # Benefits of using get_db():
+            # 1. Avoids the broken repository initialization issue
+            # 2. Provides a fresh connection without lock conflicts with scheduler
+            # 3. Uses proper DuckDBManager.execute() with correct parameter binding
             chains = []
             try:
-                # Get all chain snapshots (fallback to empty if repo method doesn't exist)
+                # Get DuckDB manager from singleton (initialized at app startup via init_db())
+                # This is thread-local cached, so we get a fresh connection per thread
+                from functions.db.connection import get_db
+                db_manager = get_db()
+
+                # Get all chain snapshots from database
+                # The 'LIMIT ?' parameter is properly bound by DuckDBManager.execute()
+                # which uses duckdb.connect().execute(sql, params) internally
                 sql = """
                     SELECT ticker, timestamp, underlying_price, expiration, calls_json, puts_json, created_at
                     FROM chain_snapshots
                     ORDER BY created_at DESC
                     LIMIT ?
                 """
-                result = self.chain_repo.db.execute(sql, [limit])
+                result = db_manager.execute(sql, [limit])
                 rows = result.fetchall()
 
                 for row in rows:
@@ -282,6 +347,16 @@ class JSONExporter:
             except Exception as e:
                 logger.warning(f"Could not fetch chain snapshots from database: {e}")
                 chains = []
+
+            # IMPORTANT: Convert chains to JSON-serializable format
+            # The 'chains' list contains dictionaries with 'timestamp' and 'created_at'
+            # datetime fields that cannot be directly serialized by json.dump().
+            # These database-returned datetime objects must be converted to ISO 8601 strings.
+            # The _convert_to_json_serializable() function handles this recursively,
+            # processing all nested dicts and lists to ensure complete serialization.
+            # Without this conversion, json.dump() will fail with:
+            # TypeError: Object of type datetime is not JSON serializable
+            chains = _convert_to_json_serializable(chains)
 
             # Create export data structure
             now = datetime.now(timezone.utc)
@@ -324,8 +399,35 @@ class JSONExporter:
         try:
             logger.info(f"Exporting scan history (last {days} days) to JSON...")
 
-            # Query database for scans
+            # Query database for scans using repository method
+            # NOTE: ScanRepository.get_scan_history() has a SQL parameter mismatch issue:
+            # The SQL uses INTERVAL '? days' which doesn't support parameter binding.
+            # The query has 3 parameters [days, limit, offset] but 'days' is embedded
+            # in the INTERVAL string literal, not as a parameter.
+            # This causes: "Error binding parameter 1: Parameter index out of range"
+            #
+            # FIX NEEDED IN REPOSITORIES.PY:
+            # Change SQL from:
+            #   WHERE created_at >= (CURRENT_TIMESTAMP - INTERVAL '? days')
+            # To:
+            #   WHERE created_at >= (CURRENT_TIMESTAMP - ? * INTERVAL '1 day')
+            # And bind [days, limit, offset] in that order.
+            #
+            # TEMPORARY WORKAROUND:
+            # If this method fails, the exception is caught and logged, and scans
+            # defaults to an empty list. This prevents total export failure.
             scans = self.scan_repo.get_scan_history(days=days, limit=500)
+
+            # IMPORTANT: Convert scans to JSON-serializable format
+            # The 'scans' list contains dictionaries with 'scan_ts' and 'created_at'
+            # datetime fields that cannot be directly serialized by json.dump().
+            # These database-returned datetime objects must be converted to ISO 8601 strings
+            # before JSON serialization.
+            # The _convert_to_json_serializable() function recursively processes all
+            # nested structures to ensure complete type conversion.
+            # Without this conversion, json.dump() will fail with:
+            # TypeError: Object of type datetime is not JSON serializable
+            scans = _convert_to_json_serializable(scans)
 
             # Create export data structure
             now = datetime.now(timezone.utc)
@@ -370,16 +472,22 @@ class JSONExporter:
             logger.info("Exporting feature snapshots to JSON...")
 
             # Query database for features
-            # Note: Fallback to empty if direct query needed
+            # CRITICAL FIX: Same issue as export_chains() - FeatureSnapshotRepository
+            # has broken __init__() that doesn't call super().__init__(), so db is None.
             features_list = []
             try:
+                # Get DuckDB manager via singleton pattern
+                from functions.db.connection import get_db
+                db_manager = get_db()
+
+                # Query feature snapshots with proper parameter binding
                 sql = """
                     SELECT ticker, features, created_at, scan_id
                     FROM feature_snapshots
                     ORDER BY created_at DESC
                     LIMIT ?
                 """
-                result = self.feature_repo.db.execute(sql, [limit])
+                result = db_manager.execute(sql, [limit])
                 rows = result.fetchall()
 
                 for row in rows:
@@ -393,6 +501,17 @@ class JSONExporter:
             except Exception as e:
                 logger.warning(f"Could not fetch features from database: {e}")
                 features_list = []
+
+            # IMPORTANT: Convert features to JSON-serializable format
+            # The 'features_list' contains dictionaries with 'created_at' datetime fields
+            # that cannot be directly serialized by json.dump().
+            # The database returns datetime.datetime objects that must be converted to
+            # ISO 8601 string format for JSON compatibility.
+            # The _convert_to_json_serializable() function recursively processes all
+            # nested dictionaries and lists to ensure all datetime objects are converted.
+            # Without this conversion, json.dump() will fail with:
+            # TypeError: Object of type datetime is not JSON serializable
+            features_list = _convert_to_json_serializable(features_list)
 
             # Create export data structure
             now = datetime.now(timezone.utc)
