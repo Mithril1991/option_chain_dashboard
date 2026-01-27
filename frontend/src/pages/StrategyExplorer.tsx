@@ -372,52 +372,132 @@ interface LineChartProps {
 const LineChart: React.FC<LineChartProps> = ({ data, title }) => {
   const minProfit = Math.min(...data.map((d) => d.profit))
   const maxProfit = Math.max(...data.map((d) => d.profit))
+  const minPrice = Math.min(...data.map((d) => d.x))
+  const maxPrice = Math.max(...data.map((d) => d.x))
   const range = maxProfit - minProfit
   const padding = range * 0.2
 
-  const height = 200
-  const width = 300
-  const chartHeight = height - 60
-  const chartWidth = width - 60
+  const height = 240
+  const width = 350
+  const chartHeight = height - 80
+  const chartWidth = width - 80
 
   const points = data.map((d, i) => {
-    const x = (i / (data.length - 1)) * chartWidth + 30
+    const x = (i / (data.length - 1)) * chartWidth + 50
     const y =
       height -
-      40 -
+      50 -
       ((d.profit - minProfit + padding) / (range + padding * 2)) * chartHeight
     return `${x},${y}`
   })
 
   const pathData = points.join(' L ')
 
+  // Calculate Y-axis labels (P/L values)
+  const yLabelCount = 4
+  const yLabels = []
+  for (let i = 0; i < yLabelCount; i++) {
+    const value = minProfit + (range / (yLabelCount - 1)) * i
+    yLabels.push(value)
+  }
+
+  // Calculate X-axis labels (price moves)
+  const xLabels = [-20, -10, 0, 10, 20].filter(
+    (x) => x >= minPrice && x <= maxPrice
+  )
+  if (xLabels.length < 2) {
+    // Fallback if data doesn't include these values
+    for (let i = 0; i < 3; i++) {
+      const value = minPrice + (maxPrice - minPrice) / 2 * i
+      if (!xLabels.includes(value)) xLabels.push(Math.round(value))
+    }
+  }
+
   return (
     <div className="bg-gray-50 p-4 rounded-lg">
       <p className="text-sm font-medium text-gray-700 mb-3">{title}</p>
       <svg
         viewBox={`0 0 ${width} ${height}`}
-        className="w-full h-48"
-        style={{ maxHeight: '200px' }}
+        className="w-full h-auto"
+        style={{ maxHeight: '260px' }}
       >
         {/* Grid lines */}
-        <line x1="30" y1="40" x2="30" y2={height - 40} stroke="#e5e7eb" />
-        <line x1="30" y1={height - 40} x2={width - 20} y2={height - 40} stroke="#e5e7eb" />
+        <line x1="50" y1="30" x2="50" y2={height - 50} stroke="#e5e7eb" />
+        <line x1="50" y1={height - 50} x2={width - 20} y2={height - 50} stroke="#e5e7eb" />
 
-        {/* Axis labels */}
-        <text x="10" y={45} fontSize="11" fill="#999" textAnchor="end">
-          P/L
+        {/* Y-axis label (P/L) */}
+        <text x="15" y="35" fontSize="12" fill="#6b7280" fontWeight="600">
+          P/L ($)
         </text>
-        <text x={width - 10} y={height - 20} fontSize="11" fill="#999">
-          Price Move
+
+        {/* Y-axis value labels */}
+        {yLabels.map((value, i) => {
+          const y =
+            height -
+            50 -
+            ((value - minProfit + padding) / (range + padding * 2)) *
+              chartHeight
+          return (
+            <g key={`y-${i}`}>
+              <text
+                x="45"
+                y={y + 4}
+                fontSize="10"
+                fill="#9ca3af"
+                textAnchor="end"
+              >
+                {Math.round(value)}
+              </text>
+              <line
+                x1="48"
+                y1={y}
+                x2="50"
+                y2={y}
+                stroke="#d1d5db"
+                strokeWidth="1"
+              />
+            </g>
+          )
+        })}
+
+        {/* X-axis label (Price Move) */}
+        <text x={width - 15} y={height - 15} fontSize="12" fill="#6b7280" fontWeight="600">
+          Price ($)
         </text>
+
+        {/* X-axis value labels */}
+        {xLabels.map((value, i) => {
+          const x = ((value - minPrice) / (maxPrice - minPrice)) * chartWidth + 50
+          return (
+            <g key={`x-${i}`}>
+              <text
+                x={x}
+                y={height - 35}
+                fontSize="10"
+                fill="#9ca3af"
+                textAnchor="middle"
+              >
+                {value >= 0 ? '+' : ''}{value}
+              </text>
+              <line
+                x1={x}
+                y1={height - 50}
+                x2={x}
+                y2={height - 48}
+                stroke="#d1d5db"
+                strokeWidth="1"
+              />
+            </g>
+          )
+        })}
 
         {/* Zero line */}
         {minProfit < 0 && maxProfit > 0 && (
           <line
-            x1="30"
-            y1={height - 40 - ((0 - minProfit + padding) / (range + padding * 2)) * chartHeight}
+            x1="50"
+            y1={height - 50 - ((0 - minProfit + padding) / (range + padding * 2)) * chartHeight}
             x2={width - 20}
-            y2={height - 40 - ((0 - minProfit + padding) / (range + padding * 2)) * chartHeight}
+            y2={height - 50 - ((0 - minProfit + padding) / (range + padding * 2)) * chartHeight}
             stroke="#d1d5db"
             strokeDasharray="4"
           />
@@ -493,22 +573,11 @@ export const StrategyExplorer: React.FC = () => {
             <div className="space-y-6">
               {/* Header Section */}
               <div className="card">
-                <div className="flex items-start justify-between mb-4">
-                  <div>
-                    <h2 className="text-3xl font-bold text-gray-900 mb-2">
-                      {selectedStrategy.name}
-                    </h2>
-                    <p className="text-gray-600">{selectedStrategy.fullDescription}</p>
-                  </div>
-                  <button
-                    onClick={() =>
-                      window.location.hash = `#strategy=${selectedStrategy.id}`
-                    }
-                    className="px-4 py-2 bg-gray-100 text-gray-700 text-sm font-medium rounded-lg hover:bg-gray-200 transition-colors"
-                    title="Share strategy via URL"
-                  >
-                    Share
-                  </button>
+                <div className="mb-4">
+                  <h2 className="text-3xl font-bold text-gray-900 mb-2">
+                    {selectedStrategy.name}
+                  </h2>
+                  <p className="text-gray-600">{selectedStrategy.fullDescription}</p>
                 </div>
 
                 {/* Risk Profile Section */}
