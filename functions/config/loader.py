@@ -128,11 +128,39 @@ class ConfigManager:
         # Load main config
         config_data = self._load_yaml("config.yaml", required=True)
 
-        # Load watchlist
-        symbols = self._load_watchlist("watchlist.txt", required=False)
-        if symbols:
-            config_data["scan"]["symbols"] = symbols
-            logger.info(f"Loaded {len(symbols)} symbols from watchlist.txt")
+        # Load watchlist from config file first
+        watchlist_symbols = config_data.get("watchlist")
+        if isinstance(watchlist_symbols, list) and watchlist_symbols:
+            logger.info(f"Using {len(watchlist_symbols)} symbols from config watchlist")
+            config_data.setdefault("scan", {})["symbols"] = [
+                sym.upper() for sym in watchlist_symbols if isinstance(sym, str)
+            ]
+        else:
+            symbols = self._load_watchlist("watchlist.txt", required=False)
+            if symbols:
+                config_data.setdefault("scan", {})["symbols"] = symbols
+                logger.info(f"Loaded {len(symbols)} symbols from watchlist.txt")
+
+        # Map scheduler settings from nested section to top-level attributes
+        scheduler_cfg = config_data.get("scheduler", {})
+        if isinstance(scheduler_cfg, dict):
+            for key in ["max_calls_per_hour", "max_calls_per_day", "flush_threshold", "check_interval_sec"]:
+                value = scheduler_cfg.get(key)
+                if value is not None:
+                    config_data[key] = value
+            collection_times = scheduler_cfg.get("collection_times_et")
+            if collection_times is not None:
+                config_data["collection_times_et"] = collection_times
+
+        # Map risk settings to attributes expected by RiskGate
+        risk_cfg = config_data.get("risk", {})
+        if isinstance(risk_cfg, dict):
+            if "max_concentration_pct" in risk_cfg:
+                config_data["max_concentration_pct"] = risk_cfg["max_concentration_pct"]
+            if "max_margin_usage_pct" in risk_cfg:
+                config_data["margin_gate_threshold_pct"] = risk_cfg["max_margin_usage_pct"]
+            if "min_cash_buffer_pct" in risk_cfg:
+                config_data["cash_gate_threshold_pct"] = risk_cfg["min_cash_buffer_pct"]
 
         # Load account settings (optional)
         account_data = self._load_yaml("account.yaml", required=False)
