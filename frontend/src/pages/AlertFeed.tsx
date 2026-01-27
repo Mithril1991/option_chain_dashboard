@@ -1,8 +1,8 @@
 import React, { useState, useMemo, useCallback, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useLatestAlertsIntegration } from '@hooks/useApiIntegration'
+import { useLatestAlertsSummary } from '@hooks/useApi'
 import { formatDate, formatRelativeTime } from '@utils/formatters'
-import type { AlertResponse } from '@types/api'
+import type { AlertSummaryResponse } from '@types/api'
 import { DetectorType } from '@types/alert'
 
 type SortOption = 'score_desc' | 'date_newest' | 'confidence'
@@ -54,11 +54,15 @@ const detectorLabels: Record<DetectorType | string, string> = {
 
 export const AlertFeed: React.FC = () => {
   const navigate = useNavigate()
-  const { alerts, loading, error, refetch } = useLatestAlertsIntegration(50)
+  const { data: alertsData, loading, error: apiError, refetch } = useLatestAlertsSummary(50)
 
-  // Local retry state for better control
+  // Local retry and error state for better control
   const [isRetrying, setIsRetrying] = useState(false)
   const [retryCount, setRetryCount] = useState(0)
+  const [displayError, setDisplayError] = useState<Error | null>(null)
+
+  // Map to alerts for local use (for backward compatibility with existing render code)
+  const alerts = alertsData || []
 
   // Filter state
   const [filters, setFilters] = useState<FilterState>({
@@ -82,19 +86,31 @@ export const AlertFeed: React.FC = () => {
     return () => clearTimeout(timer)
   }, [filters.tickerSearch])
 
-  // Clear error when alerts load successfully
+  // Handle API error state - explicitly clear error when data loads
   useEffect(() => {
-    if (alerts && alerts.length > 0) {
+    if (alerts.length > 0) {
+      // Success: clear all error states
       setRetryCount(0)
+      setDisplayError(null)
+    } else if (apiError) {
+      // Failure: propagate API error to display
+      setDisplayError(apiError)
+    } else if (loading && retryCount > 0) {
+      // Retrying: keep previous error visible
+      // No change to displayError
     }
-  }, [alerts])
+  }, [alerts, apiError, loading, retryCount])
 
   // Handle retry with exponential backoff
   const handleRetry = useCallback(async () => {
     setIsRetrying(true)
     setRetryCount(prev => prev + 1)
+    setDisplayError(null) // Clear error before retrying
     try {
       await refetch()
+    } catch (err) {
+      // Error will be caught by the hook and set via displayError
+      console.error('Refetch failed:', err)
     } finally {
       setIsRetrying(false)
     }
@@ -198,12 +214,11 @@ export const AlertFeed: React.FC = () => {
       return
     }
 
-    const headers = ['Ticker', 'Detector', 'Score', 'Strategies', 'Timestamp']
+    const headers = ['Ticker', 'Detector', 'Score', 'Timestamp']
     const rows = filteredAndSortedAlerts.map(alert => [
       alert.ticker,
       alert.detector_name,
       alert.score.toFixed(2),
-      (alert.strategies || []).join('; '),
       formatDate(alert.created_at, 'long')
     ])
 
@@ -228,13 +243,13 @@ export const AlertFeed: React.FC = () => {
       </div>
 
       {/* Error State */}
-      {error && (
+      {displayError && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
           <p className="font-semibold">Failed to Load Alerts</p>
           <p className="text-sm mb-3">
-            {error.message.includes('timeout') ?
+            {displayError.message.includes('timeout') ?
               'The request took too long. This might indicate the server is busy.' :
-              error.message.includes('network') ?
+              displayError.message.includes('network') ?
               'Network connection error. Please check your internet connection and try again.' :
               'An error occurred while loading alerts. Please try again.'}
           </p>
@@ -451,9 +466,6 @@ export const AlertFeed: React.FC = () => {
                     Score
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Strategies
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Confidence
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
@@ -478,20 +490,6 @@ export const AlertFeed: React.FC = () => {
                       <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getScoreColor(alert.score)}`}>
                         {alert.score.toFixed(1)}
                       </span>
-                    </td>
-                    <td className="px-6 py-4 text-sm text-gray-700">
-                      <div className="flex flex-wrap gap-1">
-                        {(alert.strategies || []).slice(0, 2).map((strategy, idx) => (
-                          <span key={idx} className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
-                            {typeof strategy === 'string' ? strategy : JSON.stringify(strategy)}
-                          </span>
-                        ))}
-                        {(alert.strategies || []).length > 2 && (
-                          <span className="inline-block text-gray-600 text-xs px-2 py-1">
-                            +{(alert.strategies || []).length - 2}
-                          </span>
-                        )}
-                      </div>
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
                       {(alert.score > 75 ? 'High' : alert.score > 50 ? 'Medium' : 'Low')}
@@ -531,21 +529,10 @@ export const AlertFeed: React.FC = () => {
                       <strong>Confidence:</strong> {alert.score > 75 ? 'High' : alert.score > 50 ? 'Medium' : 'Low'}
                     </p>
                   </div>
-                  {(alert.strategies || []).length > 0 && (
-                    <div>
-                      <p className="text-gray-600 mb-1"><strong>Strategies:</strong></p>
-                      <div className="flex flex-wrap gap-1">
-                        {(alert.strategies || []).slice(0, 3).map((strategy, idx) => (
-                          <span key={idx} className="inline-block bg-blue-100 text-blue-800 px-2 py-1 rounded text-xs">
-                            {typeof strategy === 'string' ? strategy : JSON.stringify(strategy)}
-                          </span>
-                        ))}
-                      </div>
-                    </div>
-                  )}
                   <p className="text-gray-500 text-xs">
                     {formatDate(alert.created_at, 'long')}
                   </p>
+                  <p className="text-xs text-blue-600 mt-2">Click to view full details</p>
                 </div>
               </div>
             ))}
