@@ -150,33 +150,34 @@ const DataModeSection: React.FC<{ mode: 'demo' | 'production'; loading: boolean 
 }
 
 // ========================================
-// Watchlist Section Component
-// Now fetches real watchlist data from backend
+// Watchlist Section Component (Editable)
+// Fetches real watchlist and allows add/remove operations
 // ========================================
 const WatchlistSection: React.FC = () => {
   const [watchlist, setWatchlist] = useState<Watchlist | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
+  const [newTicker, setNewTicker] = useState('')
+  const [addingTicker, setAddingTicker] = useState(false)
+  const [removingTicker, setRemovingTicker] = useState<string | null>(null)
+
+  const fetchWatchlist = async () => {
+    try {
+      setLoading(true)
+      const response = await apiClient.get('/config/watchlist')
+      setWatchlist(response.data)
+      setError(null)
+    } catch (err) {
+      logger.error(`Failed to fetch watchlist: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      setWatchlist({ tickers: [], lastUpdated: new Date().toISOString() })
+      setError('Unable to load watchlist from server')
+    } finally {
+      setLoading(false)
+    }
+  }
 
   useEffect(() => {
-    const fetchWatchlist = async () => {
-      try {
-        setLoading(true)
-        // Try to fetch real watchlist from backend
-        const response = await apiClient.get('/config/watchlist')
-        setWatchlist(response.data)
-        setError(null)
-      } catch (err) {
-        logger.error(`Failed to fetch watchlist: ${err instanceof Error ? err.message : 'Unknown error'}`)
-        // Fallback to empty watchlist
-        setWatchlist({ tickers: [], lastUpdated: new Date().toISOString() })
-        setError('Unable to load watchlist from server')
-      } finally {
-        setLoading(false)
-      }
-    }
-
     fetchWatchlist()
   }, [])
 
@@ -186,6 +187,43 @@ const WatchlistSection: React.FC = () => {
       navigator.clipboard.writeText(tickerList)
       setCopied(true)
       setTimeout(() => setCopied(false), 2000)
+    }
+  }
+
+  const handleAddTicker = async () => {
+    if (!newTicker.trim()) {
+      return
+    }
+
+    setAddingTicker(true)
+    try {
+      await apiClient.post('/config/watchlist', {
+        action: 'add',
+        ticker: newTicker.toUpperCase(),
+      })
+      setNewTicker('')
+      await fetchWatchlist()
+    } catch (err) {
+      logger.error(`Failed to add ticker: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      setError(`Failed to add ticker: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    } finally {
+      setAddingTicker(false)
+    }
+  }
+
+  const handleRemoveTicker = async (ticker: string) => {
+    setRemovingTicker(ticker)
+    try {
+      await apiClient.post('/config/watchlist', {
+        action: 'remove',
+        ticker: ticker,
+      })
+      await fetchWatchlist()
+    } catch (err) {
+      logger.error(`Failed to remove ticker: ${err instanceof Error ? err.message : 'Unknown error'}`)
+      setError(`Failed to remove ticker: ${err instanceof Error ? err.message : 'Unknown error'}`)
+    } finally {
+      setRemovingTicker(null)
     }
   }
 
@@ -203,7 +241,7 @@ const WatchlistSection: React.FC = () => {
   return (
     <div className="card mb-6 p-6 border border-gray-200 rounded-lg">
       <div className="flex items-center justify-between mb-6">
-        <h2 className="text-xl font-bold text-gray-900">Watchlist</h2>
+        <h2 className="text-xl font-bold text-gray-900">Watchlist (Editable)</h2>
         <span className="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium">
           Monitoring {watchlist?.tickers.length || 0} tickers
         </span>
@@ -215,16 +253,56 @@ const WatchlistSection: React.FC = () => {
         </div>
       )}
 
+      {/* Add Ticker Section */}
+      <div className="mb-6 p-4 bg-gray-50 rounded-lg border border-gray-200">
+        <p className="text-sm font-medium text-gray-700 mb-3">Add New Ticker</p>
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={newTicker}
+            onChange={(e) => setNewTicker(e.target.value.toUpperCase())}
+            onKeyPress={(e) => e.key === 'Enter' && handleAddTicker()}
+            placeholder="Enter ticker symbol (e.g., GOOGL)"
+            maxLength={10}
+            className="flex-1 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:border-blue-500"
+            disabled={addingTicker}
+          />
+          <button
+            onClick={handleAddTicker}
+            disabled={addingTicker || !newTicker.trim()}
+            className={`px-4 py-2 rounded-lg font-medium transition-all ${
+              addingTicker || !newTicker.trim()
+                ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                : 'bg-green-600 text-white hover:bg-green-700'
+            }`}
+          >
+            {addingTicker ? 'Adding...' : 'Add'}
+          </button>
+        </div>
+      </div>
+
+      {/* Ticker Grid */}
       {watchlist && watchlist.tickers.length > 0 ? (
         <>
-          {/* Ticker Grid */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-3 mb-6">
-            {watchlist.tickers.map((ticker, idx) => (
+            {watchlist.tickers.map((ticker) => (
               <div
-                key={idx}
-                className="px-4 py-3 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-300 text-center"
+                key={ticker}
+                className="px-4 py-3 bg-gradient-to-br from-blue-50 to-blue-100 rounded-lg border border-blue-300 flex items-center justify-between group hover:shadow-md transition-shadow"
               >
                 <p className="font-bold text-blue-900 text-lg">{ticker}</p>
+                <button
+                  onClick={() => handleRemoveTicker(ticker)}
+                  disabled={removingTicker === ticker}
+                  className={`text-xs px-2 py-1 rounded opacity-0 group-hover:opacity-100 transition-opacity ${
+                    removingTicker === ticker
+                      ? 'bg-gray-400 text-gray-200 cursor-not-allowed'
+                      : 'bg-red-500 text-white hover:bg-red-600'
+                  }`}
+                  title={`Remove ${ticker}`}
+                >
+                  {removingTicker === ticker ? '...' : '✕'}
+                </button>
               </div>
             ))}
           </div>
@@ -249,7 +327,7 @@ const WatchlistSection: React.FC = () => {
       ) : (
         <div className="text-center py-8 text-gray-500">
           <p className="text-lg">No tickers in watchlist</p>
-          <p className="text-sm mt-2">Add tickers to monitor market opportunities</p>
+          <p className="text-sm mt-2">Add tickers above to monitor market opportunities</p>
         </div>
       )}
     </div>
