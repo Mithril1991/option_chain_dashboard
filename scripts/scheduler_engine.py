@@ -47,8 +47,15 @@ Usage:
     config_manager = get_config_manager()
     config = config_manager.get_config()
 
-    # Create scheduler
-    scheduler = SchedulerEngine(config=config, scan_runner=run_scan)
+    # Create scheduler with demo data provider (replace with live provider as needed)
+    from functions.market.demo_provider import DemoMarketDataProvider
+
+    provider = DemoMarketDataProvider()
+    scheduler = SchedulerEngine(
+        config=config,
+        scan_runner=run_scan,
+        provider=provider,
+    )
 
     # Run forever (blocking)
     asyncio.run(scheduler.run_forever())
@@ -70,6 +77,8 @@ from functions.config.models import AppConfig
 from functions.db.connection import init_db, get_db
 from functions.db.repositories import BaseRepository
 from functions.export import JSONExporter
+from functions.market.provider_base import MarketDataProvider
+from functions.market.demo_provider import DemoMarketDataProvider
 
 logger = get_logger(__name__)
 
@@ -163,39 +172,31 @@ class SchedulerStateRepository(BaseRepository):
         self._ensure_table_exists()
 
     def _ensure_table_exists(self) -> None:
-        """Create scheduler_state table if it doesn't exist."""
+        """
+        Verify scheduler_state table exists.
+
+        NOTE: Table creation is now handled by functions/db/schema.sql via migrations.
+        This method only verifies the table exists from the canonical schema.
+        Do NOT create the table here - this was causing schema mismatches between
+        scheduler_engine.py and schema.sql. All schema creation goes through
+        functions/db/migrations.py and the canonical schema.sql file.
+        """
         try:
-            sql = """
-                CREATE TABLE IF NOT EXISTS scheduler_state (
-                    id INTEGER PRIMARY KEY DEFAULT NEXTVAL('seq_scheduler_state_id'),
-                    current_state VARCHAR NOT NULL,
-                    api_calls_today INTEGER DEFAULT 0,
-                    api_calls_this_hour INTEGER DEFAULT 0,
-                    hour_window_start_utc TIMESTAMP,
-                    day_window_start_utc TIMESTAMP,
-                    next_collection_utc TIMESTAMP,
-                    consecutive_failures INTEGER DEFAULT 0,
-                    backoff_until_utc TIMESTAMP,
-                    write_buffer_count INTEGER DEFAULT 0,
-                    last_state_change_utc TIMESTAMP,
-                    persisted_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-                )
-            """
-            self.db.execute(sql)
-
-            # Create sequence if needed
-            try:
-                self.db.execute("CREATE SEQUENCE IF NOT EXISTS seq_scheduler_state_id START 9000")
-            except:
-                pass  # Sequence may already exist
-
-            logger.debug("SchedulerStateRepository table ensured")
+            # Verify table exists by querying it
+            self.db.execute("SELECT id FROM scheduler_state LIMIT 1")
+            logger.debug("scheduler_state table verified")
         except Exception as e:
-            logger.warning(f"Error ensuring scheduler_state table: {e}")
+            logger.warning(
+                f"scheduler_state table not found. "
+                f"Ensure schema.sql has been applied via migrations. Error: {e}"
+            )
 
     def save_state(self, state: SchedulerStateData) -> int:
         """
         Save scheduler state to database.
+
+        Uses RETURNING id to properly get the inserted row ID (not INSERT statement count).
+        Column names must match functions/db/schema.sql scheduler_state table definition.
 
         Args:
             state: SchedulerStateData to persist
@@ -207,13 +208,15 @@ class SchedulerStateRepository(BaseRepository):
             RuntimeError: If database operation fails
         """
         try:
+            # Map SchedulerStateData fields to canonical schema.sql column names
+            # IMPORTANT: These column names MUST match functions/db/schema.sql
             sql = """
                 INSERT INTO scheduler_state (
-                    current_state, api_calls_today, api_calls_this_hour,
-                    hour_window_start_utc, day_window_start_utc,
-                    next_collection_utc, consecutive_failures, backoff_until_utc,
-                    write_buffer_count, last_state_change_utc, persisted_at
-                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                    id, current_state, api_calls_today, api_calls_this_hour,
+                    hour_window_start, next_collection_ts, consecutive_failures,
+                    backoff_until, updated_at
+                ) VALUES (1, ?, ?, ?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                RETURNING id
             """
 
             result = self.db.execute(
@@ -223,16 +226,14 @@ class SchedulerStateRepository(BaseRepository):
                     state.api_calls_today,
                     state.api_calls_this_hour,
                     state.hour_window_start_utc if state.hour_window_start_utc else None,
-                    state.day_window_start_utc if state.day_window_start_utc else None,
                     state.next_collection_utc if state.next_collection_utc else None,
                     state.consecutive_failures,
                     state.backoff_until_utc if state.backoff_until_utc else None,
-                    state.write_buffer_count,
-                    state.last_state_change_utc if state.last_state_change_utc else None,
-                ]
+                ],
             )
 
-            persisted_id = result.fetchone()[0]
+            row = result.fetchone()
+            persisted_id = row[0] if row else None
             logger.debug(
                 f"Persisted scheduler state: id={persisted_id}, "
                 f"state={state.current_state}, api_calls_today={state.api_calls_today}"
@@ -330,6 +331,7 @@ class SchedulerEngine:
         self,
         config: AppConfig,
         scan_runner: Callable,
+        provider: MarketDataProvider,
     ) -> None:
         """
         Initialize the scheduler engine.
@@ -337,7 +339,8 @@ class SchedulerEngine:
         Args:
             config: AppConfig instance with scheduler configuration
             scan_runner: Async callable that runs a complete scan.
-                        Should have signature: async def scan_runner(config: AppConfig) -> Any
+                        Should have signature: async def scan_runner(config: AppConfig, provider: MarketDataProvider) -> Any
+            provider: Market data provider used for every scheduled scan
         """
         self.config = config
         self.scan_runner = scan_runner
@@ -801,7 +804,7 @@ class SchedulerEngine:
 
                         try:
                             # Run the scan
-                            scan_result = await self.scan_runner(self.config)
+                            scan_result = await self.scan_runner(self.config, provider=self.provider)
 
                             # Estimate API calls (tickers scanned)
                             tickers_scanned = getattr(scan_result, "ticker_count", 1)
@@ -957,8 +960,15 @@ async def main() -> None:
         # Import scan runner
         from scripts.run_scan import run_scan
 
+        provider = DemoMarketDataProvider()
+        logger.info("Using DemoMarketDataProvider for CLI scheduler run")
+
         # Create and run scheduler
-        scheduler = SchedulerEngine(config=config, scan_runner=run_scan)
+        scheduler = SchedulerEngine(
+            config=config,
+            scan_runner=run_scan,
+            provider=provider,
+        )
         await scheduler.run_forever()
 
     except KeyboardInterrupt:
