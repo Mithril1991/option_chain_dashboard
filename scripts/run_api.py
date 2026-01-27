@@ -1325,26 +1325,28 @@ async def get_option_expirations(
 
 @app.get("/options/{ticker}/snapshot", response_model=ChainSnapshotResponse, tags=["Options"])
 async def get_options_snapshot(
-    ticker: str = Path(..., description="Stock ticker symbol")
+    ticker: str = Path(..., description="Stock ticker symbol"),
+    expiration: Optional[str] = Query(None, description="Optional specific expiration date (YYYY-MM-DD)")
 ) -> ChainSnapshotResponse:
     """
     Get current options chain snapshot for a ticker.
 
     Returns the current bid/ask, Greeks, and other contract details for both
-    call and put options on a specific ticker. Includes both the nearest and
-    secondary expirations.
+    call and put options on a specific ticker. Can optionally filter to a specific expiration.
 
     Args:
         ticker: Stock ticker symbol (e.g., "AAPL")
+        expiration: Optional specific expiration date (YYYY-MM-DD). If not provided, returns nearest expiration.
 
     Returns:
-        ChainSnapshotResponse with calls and puts for both expirations
+        ChainSnapshotResponse with calls and puts for specified/nearest expiration
 
     Raises:
         HTTPException: 404 if no data available, 500 if query fails
 
     Example:
         GET /options/AAPL/snapshot
+        GET /options/AAPL/snapshot?expiration=2026-02-20
         {
             "ticker": "AAPL",
             "timestamp": "2026-01-26T15:30:00Z",
@@ -1355,21 +1357,26 @@ async def get_options_snapshot(
         }
     """
     try:
-        # Load chain snapshot from JSON file (Hybrid Approach - Option C)
-        chains = load_chains_from_json(ticker=ticker, limit=1)
+        # Load chain snapshots from JSON file (Hybrid Approach - Option C)
+        chains = load_chains_from_json(ticker=ticker, limit=10)  # Load up to 10 to find requested expiration
 
+        # If expiration is specified, filter to that exact expiration
+        if expiration and chains:
+            chains = [c for c in chains if c.get("expiration") == expiration]
+
+        # If no chains found, return empty response
         if not chains:
-            logger.info(f"No chain snapshot available for ticker: {ticker}")
-            # Return minimal response instead of 404 for consistency
+            logger.info(f"No chain snapshot available for ticker: {ticker}" + (f" expiration: {expiration}" if expiration else ""))
             return ChainSnapshotResponse(
                 ticker=ticker,
                 timestamp=get_utc_iso_timestamp(),
                 underlying_price=0,
-                expiration="",
+                expiration=expiration or "",
                 calls=[],
                 puts=[],
             )
 
+        # Use first matching chain (or nearest if no specific expiration requested)
         chain = chains[0]
 
         # Convert to response format

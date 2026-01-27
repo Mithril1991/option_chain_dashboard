@@ -36,9 +36,6 @@ export const OptionChains: React.FC = () => {
   const [putsSortBy, setPutsSortBy] = useState<SortField>('strike')
   const [putsSortDir, setPutsSortDir] = useState<SortDirection>('asc')
 
-  // Fetch option chain
-  const { chain, loading, error, refetch } = useOptionChainIntegration(ticker)
-
   // Fetch available expirations for ticker
   const { data: expirationsList = [] } = useOptionExpirations(ticker)
 
@@ -48,6 +45,10 @@ export const OptionChains: React.FC = () => {
       setSelectedExpiration(expirationsList[0])
     }
   }, [expirationsList, selectedExpiration])
+
+  // Fetch option chain for selected expiration
+  // Pass expiration parameter to load the specific chain, not just the nearest
+  const { chain, loading, error, refetch } = useOptionChainIntegration(ticker, selectedExpiration || undefined)
 
   // Calculate DTE (Days To Expiration)
   const calculateDTE = (expirationDate: string): number => {

@@ -222,13 +222,15 @@ export const useAlertsByTicker = (ticker: string): UseApiState<AlertResponse[]> 
 }
 
 /**
- * Fetch options chain snapshot for a ticker
+ * Fetch options chain snapshot for a ticker, optionally filtered by expiration
  */
-export const useOptionChain = (ticker: string): UseApiState<ChainSnapshot> & { refetch: () => Promise<void> } => {
-  const url = `/options/${ticker}/snapshot`
+export const useOptionChain = (ticker: string, expiration?: string): UseApiState<ChainSnapshot> & { refetch: () => Promise<void> } => {
+  const url = expiration
+    ? `/options/${ticker}/snapshot?expiration=${encodeURIComponent(expiration)}`
+    : `/options/${ticker}/snapshot`
   return useApi<ChainSnapshot>(url, {
     immediate: !!ticker,
-    dependencies: [ticker]
+    dependencies: [ticker, expiration]
   })
 }
 
