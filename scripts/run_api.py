@@ -39,6 +39,7 @@ import asyncio
 from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 from contextlib import asynccontextmanager
+from pathlib import Path as PathlibPath
 
 from fastapi import FastAPI, Query, Path, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -50,7 +51,6 @@ from functions.util.logging_setup import setup_logging, get_logger
 from functions.config.loader import get_config_manager
 from functions.config.settings import get_settings
 from functions.db.connection import init_db, get_db
-from pathlib import Path as PathlibPath
 
 # Initialize database FIRST before importing repositories
 # Note: When run as subprocess from main.py, database is already initialized.
@@ -254,6 +254,39 @@ class ConfigModeResponse(BaseModel):
 
     mode: str = Field(..., description="Data mode ('demo' or 'production')")
     timestamp: str = Field(..., description="UTC ISO 8601 timestamp")
+
+
+class ConfigUpdateRequest(BaseModel):
+    """Configuration update request model.
+
+    Allows updating configuration values at runtime without server restart.
+    This endpoint enables mode switching (demo/production) from the frontend,
+    allowing users to test with synthetic data or switch to live market data.
+
+    WHY THIS IS USEFUL:
+    - Developers can quickly test with demo data without waiting for restarts
+    - Users can toggle between safe testing and live trading modes
+    - Supports A/B testing of different data sources without redeployment
+    """
+
+    mode: Optional[str] = Field(
+        None,
+        description="Data mode to switch to ('demo' or 'production')"
+    )
+
+
+class ConfigUpdateResponse(BaseModel):
+    """Configuration update response model.
+
+    Returns the new configuration state after successful update.
+    Includes timestamp for audit trail and demo_mode flag for client state sync.
+    """
+
+    status: str = Field(..., description="Update status ('updated' or 'error')")
+    mode: Optional[str] = Field(None, description="New data mode ('demo' or 'production')")
+    demo_mode: Optional[bool] = Field(None, description="New demo_mode flag value (True=demo, False=production)")
+    message: Optional[str] = Field(None, description="Status message for debugging")
+    timestamp: str = Field(..., description="UTC ISO 8601 timestamp of update")
 
 
 class ScanResponse(BaseModel):
@@ -490,9 +523,19 @@ app = FastAPI(
 # ============================================================================
 
 # CORS Middleware - Enable cross-origin requests from React frontend
+# Configured to support:
+# - http://192.168.1.16:8060: LAN access from the frontend (frontend IP)
+# - http://localhost:8060: Local development with localhost
+# - 127.0.0.1:8060: Loopback IP for local development
+# This allows the frontend running on any of these origins to make API calls
+# to the backend while preventing other unauthorized origins from accessing it
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:8060", "127.0.0.1:8060"],
+    allow_origins=[
+        "http://192.168.1.16:8060",  # LAN access (frontend on IP)
+        "http://localhost:8060",      # Local development
+        "http://127.0.0.1:8060",      # Loopback address for dev
+    ],
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
@@ -654,6 +697,132 @@ async def get_data_mode() -> ConfigModeResponse:
     logger.debug(f"Data mode: {mode}")
     return ConfigModeResponse(
         mode=mode,
+        timestamp=get_utc_iso_timestamp(),
+    )
+
+
+@app.post("/config/data-mode", response_model=ConfigUpdateResponse, tags=["Config"])
+async def update_data_mode(request: ConfigUpdateRequest) -> ConfigUpdateResponse:
+    """
+    Update data mode (demo or production) at runtime.
+
+    This endpoint allows switching between demo mode (synthetic data) and
+    production mode (live market data) WITHOUT restarting the server.
+
+    WHY THIS IS USEFUL:
+    - Developers can test with demo data then switch to live data on the fly
+    - Users can safely test strategies with synthetic data before going live
+    - No server restart required - changes take effect immediately for next API calls
+    - Maintains audit trail with timestamp of each mode change
+
+    Args:
+        request: ConfigUpdateRequest with mode ('demo' or 'production')
+
+    Returns:
+        ConfigUpdateResponse with new mode and updated demo_mode flag
+
+    Raises:
+        HTTPException: 400 if mode is invalid, 500 if update fails
+
+    Example:
+        POST /config/data-mode
+        {
+            "mode": "production"
+        }
+
+        Response:
+        {
+            "status": "updated",
+            "mode": "production",
+            "demo_mode": false,
+            "message": "Switched from demo to production mode",
+            "timestamp": "2026-01-26T15:30:45.123456Z"
+        }
+    """
+    try:
+        # Validate input
+        if not request.mode:
+            raise HTTPException(
+                status_code=400,
+                detail="mode parameter is required ('demo' or 'production')"
+            )
+
+        if request.mode not in ["demo", "production"]:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Invalid mode: '{request.mode}'. Must be 'demo' or 'production'"
+            )
+
+        # Get current settings
+        settings = get_settings()
+        old_mode = "demo" if settings.demo_mode else "production"
+
+        # Update demo_mode flag in settings
+        # NOTE: Settings are immutable (Pydantic), but we can modify the flag in memory
+        new_demo_mode = (request.mode == "demo")
+        settings.demo_mode = new_demo_mode
+
+        # Log the mode change with timestamp for audit trail
+        logger.info(
+            f"Data mode switched: {old_mode} → {request.mode} "
+            f"[{get_utc_iso_timestamp()}]"
+        )
+
+        return ConfigUpdateResponse(
+            status="updated",
+            mode=request.mode,
+            demo_mode=new_demo_mode,
+            message=f"Switched from {old_mode} to {request.mode} mode",
+            timestamp=get_utc_iso_timestamp(),
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update data mode: {e}")
+        raise HTTPException(status_code=500, detail=f"Mode update failed: {e}")
+
+
+@app.post("/config/update", response_model=ConfigUpdateResponse, tags=["Config"])
+async def update_config(request: ConfigUpdateRequest) -> ConfigUpdateResponse:
+    """
+    Generic configuration update endpoint (future expansion).
+
+    This endpoint is designed for future use to update other configuration
+    values beyond just demo_mode. Currently supports mode switching.
+
+    FUTURE SUPPORT:
+    - Risk-free rate adjustment
+    - Cache TTL configuration
+    - Alert thresholds
+    - Other runtime settings
+
+    WHY THIS IS STRUCTURED THIS WAY:
+    - Single endpoint for all config updates (consistent API)
+    - Easy to extend with new fields in ConfigUpdateRequest
+    - Maintains timestamp audit trail for all changes
+    - Type-safe validation via Pydantic models
+
+    Args:
+        request: ConfigUpdateRequest with fields to update
+
+    Returns:
+        ConfigUpdateResponse with new values and status
+
+    Example:
+        POST /config/update
+        {
+            "mode": "production"
+        }
+    """
+    # For now, delegate to data-mode endpoint
+    # This will be extended for other config fields in the future
+    if request.mode:
+        return await update_data_mode(request)
+
+    return ConfigUpdateResponse(
+        status="error",
+        message="No configuration fields to update",
         timestamp=get_utc_iso_timestamp(),
     )
 
@@ -1462,6 +1631,370 @@ async def get_transactions(
     except Exception as e:
         logger.error(f"Failed to get transactions: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get transactions: {e}")
+
+
+# ============================================================================
+# THESES & KNOWLEDGE BASE ENDPOINTS
+# ============================================================================
+# These endpoints serve per-ticker knowledge base files (investment theses, risks, notes)
+# stored in the tickers/ directory. This allows traders to:
+# 1. View investment thesis via UI (loaded from tickers/{TICKER}/theses.md)
+# 2. Review known risks (loaded from tickers/{TICKER}/risks.md)
+# 3. Access trading notes and pattern observations (from tickers/{TICKER}/notes.md)
+#
+# WHY THIS IS USEFUL:
+# - Centralizes ticker-specific knowledge in markdown files (easy to edit, version control)
+# - UI can display formatted thesis content to inform trading decisions
+# - Each ticker has consistent structure (theses.md, risks.md, notes.md)
+# - Traders can quickly access investment rationale without external lookups
+#
+# HOW IT WORKS:
+# - Files stored: tickers/{TICKER}/theses.md | risks.md | notes.md
+# - API reads from disk; returns markdown content
+# - Returns 404 if file doesn't exist (ticker or file type not found)
+# - Content returned as plain text (markdown formatted for UI rendering)
+
+
+class ThesisResponse(BaseModel):
+    """Response model for thesis/risks/notes content."""
+
+    ticker: str = Field(..., description="Stock ticker symbol")
+    file_type: str = Field(..., description="File type: 'thesis', 'risks', or 'notes'")
+    content: str = Field(..., description="Markdown file content")
+    last_updated: Optional[str] = Field(None, description="File last modified timestamp")
+    timestamp: str = Field(..., description="UTC ISO 8601 response timestamp")
+
+
+def get_tickers_dir() -> PathlibPath:
+    """Get path to tickers/ directory containing per-ticker knowledge base.
+
+    Returns:
+        Path to tickers directory
+
+    Example:
+        /mnt/shared_ubuntu/Claude/Projects/option_chain_dashboard/tickers/
+    """
+    project_root = PathlibPath(__file__).parent.parent
+    return project_root / "tickers"
+
+
+def load_thesis_file(ticker: str, file_type: str) -> Optional[str]:
+    """Load thesis/risks/notes markdown file for a ticker.
+
+    Args:
+        ticker: Stock ticker symbol (e.g., 'AAPL', 'TSLA')
+        file_type: File type ('thesis', 'risks', or 'notes')
+
+    Returns:
+        Markdown content as string, or None if file not found
+
+    HOW THIS WORKS:
+    1. Validates ticker and file_type (prevent directory traversal attacks)
+    2. Constructs file path: tickers/{TICKER}/{FILE_TYPE}.md
+    3. Reads file from disk
+    4. Returns content as string (markdown formatted)
+    5. Returns None if file doesn't exist (graceful 404 handling)
+
+    Example:
+        load_thesis_file('SOFI', 'thesis') → returns content of tickers/SOFI/theses.md
+        load_thesis_file('UNKNOWN', 'thesis') → returns None (ticker dir not found)
+    """
+    try:
+        # Validate file_type
+        valid_types = {"thesis": "theses.md", "risks": "risks.md", "notes": "notes.md"}
+        if file_type not in valid_types:
+            logger.warning(f"Invalid file type requested: {file_type}")
+            return None
+
+        # Sanitize ticker (prevent directory traversal attacks like ../../../etc/passwd)
+        ticker_clean = str(ticker).upper().replace("..", "").replace("/", "").replace("\\", "")
+        if not ticker_clean or len(ticker_clean) > 10:
+            logger.warning(f"Invalid ticker requested: {ticker}")
+            return None
+
+        # Construct file path
+        tickers_dir = get_tickers_dir()
+        file_path = tickers_dir / ticker_clean / valid_types[file_type]
+
+        # Check file exists
+        if not file_path.exists():
+            logger.debug(f"Thesis file not found: {file_path}")
+            return None
+
+        # Read and return content
+        with open(file_path, "r") as f:
+            content = f.read()
+            logger.debug(f"Loaded thesis file for {ticker_clean}/{file_type}: {len(content)} bytes")
+            return content
+
+    except Exception as e:
+        logger.error(f"Failed to load thesis file for {ticker}/{file_type}: {e}")
+        return None
+
+
+@app.get("/tickers/{ticker}/thesis", response_model=ThesisResponse, tags=["Theses"])
+async def get_ticker_thesis(
+    ticker: str = Path(..., description="Stock ticker symbol (e.g., 'AAPL', 'SOFI')")
+) -> ThesisResponse:
+    """Get investment thesis for a ticker.
+
+    Returns markdown content from tickers/{TICKER}/theses.md explaining:
+    - Company overview and business model
+    - Bull case (why this is a good opportunity)
+    - Bear case (known risks and headwinds)
+    - Catalyst timeline (expected events)
+    - IV strategy (why IV patterns matter for this ticker)
+    - Key metrics to monitor
+
+    Args:
+        ticker: Stock ticker symbol (case-insensitive)
+
+    Returns:
+        ThesisResponse with thesis markdown content
+
+    Raises:
+        HTTPException: 404 if ticker or thesis file not found, 500 if read fails
+
+    Example:
+        GET /tickers/SOFI/thesis
+        {
+            "ticker": "SOFI",
+            "file_type": "thesis",
+            "content": "# SoFi Technologies Investment Thesis\\n\\n## Overview\\n...",
+            "timestamp": "2026-01-27T15:30:45.123456Z"
+        }
+
+    WHY THIS ENDPOINT:
+    - UI displays thesis to inform trading decisions
+    - Centralizes investment rationale in one place
+    - Markdown format allows easy updates without code changes
+    - Reduces need for external research lookups during trading
+    """
+    try:
+        content = load_thesis_file(ticker, "thesis")
+
+        if not content:
+            logger.info(f"Thesis not found for ticker: {ticker}")
+            raise HTTPException(
+                status_code=404,
+                detail=f"Thesis not found for ticker '{ticker}'. Create tickers/{ticker}/theses.md to add.",
+            )
+
+        logger.debug(f"Retrieved thesis for ticker: {ticker}")
+        return ThesisResponse(
+            ticker=ticker.upper(),
+            file_type="thesis",
+            content=content,
+            timestamp=get_utc_iso_timestamp(),
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get thesis for {ticker}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get thesis: {e}")
+
+
+@app.get("/tickers/{ticker}/risks", response_model=ThesisResponse, tags=["Theses"])
+async def get_ticker_risks(
+    ticker: str = Path(..., description="Stock ticker symbol (e.g., 'AAPL', 'SOFI')")
+) -> ThesisResponse:
+    """Get known risks for a ticker.
+
+    Returns markdown content from tickers/{TICKER}/risks.md explaining:
+    - Regulatory risks
+    - Competitive risks
+    - Earnings/profitability risks
+    - Macro/market risks
+    - Valuation risks
+    - Risk mitigation strategies
+
+    Args:
+        ticker: Stock ticker symbol (case-insensitive)
+
+    Returns:
+        ThesisResponse with risks markdown content
+
+    Raises:
+        HTTPException: 404 if ticker or risks file not found, 500 if read fails
+
+    Example:
+        GET /tickers/SOFI/risks
+        {
+            "ticker": "SOFI",
+            "file_type": "risks",
+            "content": "# SoFi Technologies Risk Assessment\\n\\n## Regulatory Risks\\n...",
+            "timestamp": "2026-01-27T15:30:45.123456Z"
+        }
+
+    WHY THIS ENDPOINT:
+    - Traders quickly assess downside risks before positions
+    - Centralizes risk assessment in one place
+    - Helps with position sizing and stop loss decisions
+    - Reduces surprises from known but forgotten risks
+    """
+    try:
+        content = load_thesis_file(ticker, "risks")
+
+        if not content:
+            logger.info(f"Risks not found for ticker: {ticker}")
+            raise HTTPException(
+                status_code=404,
+                detail=f"Risks not found for ticker '{ticker}'. Create tickers/{ticker}/risks.md to add.",
+            )
+
+        logger.debug(f"Retrieved risks for ticker: {ticker}")
+        return ThesisResponse(
+            ticker=ticker.upper(),
+            file_type="risks",
+            content=content,
+            timestamp=get_utc_iso_timestamp(),
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get risks for {ticker}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get risks: {e}")
+
+
+@app.get("/tickers/{ticker}/notes", response_model=ThesisResponse, tags=["Theses"])
+async def get_ticker_notes(
+    ticker: str = Path(..., description="Stock ticker symbol (e.g., 'AAPL', 'SOFI')")
+) -> ThesisResponse:
+    """Get trading notes and observations for a ticker.
+
+    Returns markdown content from tickers/{TICKER}/notes.md containing:
+    - Recent trading patterns and observations
+    - IV behavior analysis
+    - Support/resistance levels
+    - Correlation with other assets
+    - Trading strategy ideas (tested and pending)
+    - Trade log with historical results
+    - Risk management rules
+    - Action items and monitoring tasks
+
+    Args:
+        ticker: Stock ticker symbol (case-insensitive)
+
+    Returns:
+        ThesisResponse with notes markdown content
+
+    Raises:
+        HTTPException: 404 if ticker or notes file not found, 500 if read fails
+
+    Example:
+        GET /tickers/SOFI/notes
+        {
+            "ticker": "SOFI",
+            "file_type": "notes",
+            "content": "# SoFi Trading & Analysis Notes\\n\\n## Recent Observations\\n...",
+            "timestamp": "2026-01-27T15:30:45.123456Z"
+        }
+
+    WHY THIS ENDPOINT:
+    - Traders access free-form analysis and pattern observations
+    - Historical trade log shows what strategies worked/failed
+    - Consolidates dated notes for pattern recognition
+    - Helps with options strategy selection (what's worked before?)
+    """
+    try:
+        content = load_thesis_file(ticker, "notes")
+
+        if not content:
+            logger.info(f"Notes not found for ticker: {ticker}")
+            raise HTTPException(
+                status_code=404,
+                detail=f"Notes not found for ticker '{ticker}'. Create tickers/{ticker}/notes.md to add.",
+            )
+
+        logger.debug(f"Retrieved notes for ticker: {ticker}")
+        return ThesisResponse(
+            ticker=ticker.upper(),
+            file_type="notes",
+            content=content,
+            timestamp=get_utc_iso_timestamp(),
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get notes for {ticker}: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get notes: {e}")
+
+
+@app.get("/tickers/list", tags=["Theses"])
+async def list_tickers() -> Dict[str, Any]:
+    """List all available tickers with their knowledge base files.
+
+    Returns metadata about available tickers, including which files exist
+    for each ticker (thesis, risks, notes).
+
+    Returns:
+        Dict with list of available tickers and their file status
+
+    Example:
+        GET /tickers/list
+        {
+            "tickers": [
+                {
+                    "ticker": "SOFI",
+                    "has_thesis": true,
+                    "has_risks": true,
+                    "has_notes": true
+                },
+                {
+                    "ticker": "AMD",
+                    "has_thesis": true,
+                    "has_risks": true,
+                    "has_notes": false
+                }
+            ],
+            "total_count": 5,
+            "timestamp": "2026-01-27T15:30:45.123456Z"
+        }
+
+    WHY THIS ENDPOINT:
+    - UI can populate ticker list without hardcoding
+    - Shows which tickers have complete knowledge bases
+    - Helps identify missing documentation
+    - Supports dynamic ticker discovery
+    """
+    try:
+        tickers_dir = get_tickers_dir()
+
+        if not tickers_dir.exists():
+            logger.warning(f"Tickers directory not found: {tickers_dir}")
+            return {
+                "tickers": [],
+                "total_count": 0,
+                "timestamp": get_utc_iso_timestamp(),
+            }
+
+        # Scan tickers directory
+        tickers = []
+        for ticker_dir in sorted(tickers_dir.iterdir()):
+            if ticker_dir.is_dir():
+                ticker_name = ticker_dir.name.upper()
+                tickers.append(
+                    {
+                        "ticker": ticker_name,
+                        "has_thesis": (ticker_dir / "theses.md").exists(),
+                        "has_risks": (ticker_dir / "risks.md").exists(),
+                        "has_notes": (ticker_dir / "notes.md").exists(),
+                    }
+                )
+
+        logger.debug(f"Listed {len(tickers)} tickers from knowledge base")
+        return {
+            "tickers": tickers,
+            "total_count": len(tickers),
+            "timestamp": get_utc_iso_timestamp(),
+        }
+
+    except Exception as e:
+        logger.error(f"Failed to list tickers: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to list tickers: {e}")
 
 
 # ============================================================================

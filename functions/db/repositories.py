@@ -226,12 +226,20 @@ class ScanRepository(BaseRepository):
                 print(f"{scan['created_at']}: {scan['tickers_scanned']} tickers, {scan['alerts_generated']} alerts")
         """
         try:
+            # FIX: Parameter binding for INTERVAL requires special syntax.
+            # In DuckDB, INTERVAL '? days' doesn't work - the ? must be outside the string.
+            # Changed from:
+            #   WHERE created_at >= (CURRENT_TIMESTAMP - INTERVAL '? days')
+            # To:
+            #   WHERE created_at >= (CURRENT_TIMESTAMP - ? * INTERVAL '1 day')
+            # This properly binds the 'days' parameter as a numeric multiplier.
             sql = """
                 SELECT * FROM scans
-                WHERE created_at >= (CURRENT_TIMESTAMP - INTERVAL '? days')
+                WHERE created_at >= (CURRENT_TIMESTAMP - ? * INTERVAL '1 day')
                 ORDER BY scan_ts DESC
                 LIMIT ? OFFSET ?
             """
+            # Parameters: days (for interval calculation), limit (for LIMIT), offset (for OFFSET)
             result = self.db.execute(sql, [days, limit, offset])
             rows = result.fetchall()
 
@@ -937,8 +945,16 @@ class ChainSnapshotRepository(BaseRepository):
     """
 
     def __init__(self):
-        """Initialize ChainSnapshotRepository."""
-        pass
+        """Initialize ChainSnapshotRepository.
+
+        CRITICAL FIX: This __init__ was not calling super().__init__(), which meant
+        self.db was never initialized and would be None. This caused AttributeError
+        when export_chains() tried to call self.chain_repo.db.execute().
+
+        By calling super().__init__(), we now properly initialize self.db with the
+        DuckDB connection from get_db(), making the repository fully functional.
+        """
+        super().__init__()
 
     def save_chain_snapshot(
         self,
