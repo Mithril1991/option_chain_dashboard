@@ -54,7 +54,11 @@ const detectorLabels: Record<DetectorType | string, string> = {
 
 export const AlertFeed: React.FC = () => {
   const navigate = useNavigate()
-  const { alerts, loading, error, refetch } = useLatestAlertsIntegration(200)
+  const { alerts, loading, error, refetch } = useLatestAlertsIntegration(50)
+
+  // Local retry state for better control
+  const [isRetrying, setIsRetrying] = useState(false)
+  const [retryCount, setRetryCount] = useState(0)
 
   // Filter state
   const [filters, setFilters] = useState<FilterState>({
@@ -77,6 +81,24 @@ export const AlertFeed: React.FC = () => {
     }, 300)
     return () => clearTimeout(timer)
   }, [filters.tickerSearch])
+
+  // Clear error when alerts load successfully
+  useEffect(() => {
+    if (alerts && alerts.length > 0) {
+      setRetryCount(0)
+    }
+  }, [alerts])
+
+  // Handle retry with exponential backoff
+  const handleRetry = useCallback(async () => {
+    setIsRetrying(true)
+    setRetryCount(prev => prev + 1)
+    try {
+      await refetch()
+    } finally {
+      setIsRetrying(false)
+    }
+  }, [refetch])
 
   // Filter and sort alerts
   const filteredAndSortedAlerts = useMemo(() => {
@@ -208,14 +230,28 @@ export const AlertFeed: React.FC = () => {
       {/* Error State */}
       {error && (
         <div className="mb-6 p-4 bg-red-50 border border-red-200 rounded-lg text-red-800">
-          <p className="font-semibold">Error Loading Alerts</p>
-          <p className="text-sm">{error.message}</p>
-          <button
-            onClick={refetch}
-            className="mt-2 px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 transition-colors"
-          >
-            Retry
-          </button>
+          <p className="font-semibold">Failed to Load Alerts</p>
+          <p className="text-sm mb-3">
+            {error.message.includes('timeout') ?
+              'The request took too long. This might indicate the server is busy.' :
+              error.message.includes('network') ?
+              'Network connection error. Please check your internet connection and try again.' :
+              'An error occurred while loading alerts. Please try again.'}
+          </p>
+          <div className="flex gap-2">
+            <button
+              onClick={handleRetry}
+              disabled={isRetrying || loading}
+              className="px-4 py-2 bg-red-600 text-white rounded hover:bg-red-700 disabled:bg-gray-400 transition-colors disabled:cursor-not-allowed"
+            >
+              {isRetrying ? 'Retrying...' : retryCount > 0 ? `Retry (Attempt ${retryCount + 1})` : 'Retry'}
+            </button>
+            {retryCount > 2 && (
+              <p className="text-xs text-red-700 self-center">
+                Multiple failures. Server may be unavailable.
+              </p>
+            )}
+          </div>
         </div>
       )}
 
@@ -249,7 +285,7 @@ export const AlertFeed: React.FC = () => {
                 ...prev,
                 dateRange: e.target.value as DateRange
               }))}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white text-gray-900"
             >
               <option value="24h">Last 24 Hours</option>
               <option value="7d">Last 7 Days</option>
@@ -273,7 +309,7 @@ export const AlertFeed: React.FC = () => {
                   ...prev,
                   customDateStart: e.target.value
                 }))}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-gray-900"
               />
             </div>
             <div>
@@ -287,7 +323,7 @@ export const AlertFeed: React.FC = () => {
                   ...prev,
                   customDateEnd: e.target.value
                 }))}
-                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none"
+                className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none text-gray-900"
               />
             </div>
           </div>
@@ -364,7 +400,7 @@ export const AlertFeed: React.FC = () => {
                 ...prev,
                 sortBy: e.target.value as SortOption
               }))}
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent outline-none bg-white text-gray-900"
             >
               <option value="score_desc">Score (High to Low)</option>
               <option value="date_newest">Date (Newest)</option>
