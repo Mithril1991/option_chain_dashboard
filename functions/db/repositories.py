@@ -79,12 +79,18 @@ class ScanRepository(BaseRepository):
             RuntimeError: If database operation fails
         """
         try:
+            # Use RETURNING id to get the auto-generated ID back from DuckDB
             sql = """
                 INSERT INTO scans (scan_ts, config_hash, status, created_at)
                 VALUES (CURRENT_TIMESTAMP, ?, 'pending', CURRENT_TIMESTAMP)
+                RETURNING id
             """
             result = self.db.execute(sql, [config_hash])
-            scan_id = result.fetchone()[0]
+            row = result.fetchone()
+            scan_id = row[0] if row else None
+
+            if scan_id is None:
+                raise RuntimeError("Failed to retrieve inserted scan ID")
 
             logger.info(f"Created scan record: id={scan_id}, config_hash={config_hash[:8]}")
             return scan_id
@@ -448,12 +454,18 @@ class AlertRepository(BaseRepository):
         """
         try:
             alert_json = json.dumps(alert_data)
+            # Use RETURNING id to get the auto-generated ID from DuckDB (don't call fetchone twice!)
             sql = """
                 INSERT INTO alerts (scan_id, ticker, detector_name, score, alert_json, created_at)
                 VALUES (?, ?, ?, ?, ?, CURRENT_TIMESTAMP)
+                RETURNING id
             """
             result = self.db.execute(sql, [scan_id, ticker, detector_name, score, alert_json])
-            alert_id = result.fetchone()[0] if result.fetchone() else None
+            row = result.fetchone()
+            alert_id = row[0] if row else None
+
+            if alert_id is None:
+                raise RuntimeError("Failed to retrieve inserted alert ID")
 
             logger.info(
                 f"Saved alert: id={alert_id}, ticker={ticker}, detector={detector_name}, score={score:.1f}"

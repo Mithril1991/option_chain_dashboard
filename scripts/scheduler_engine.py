@@ -210,8 +210,10 @@ class SchedulerStateRepository(BaseRepository):
         try:
             # Map SchedulerStateData fields to canonical schema.sql column names
             # IMPORTANT: These column names MUST match functions/db/schema.sql
+            # Since scheduler_state is a singleton table (only one row with id=1),
+            # use INSERT OR REPLACE to handle both insert and update cases
             sql = """
-                INSERT INTO scheduler_state (
+                INSERT OR REPLACE INTO scheduler_state (
                     id, current_state, api_calls_today, api_calls_this_hour,
                     hour_window_start, next_collection_ts, consecutive_failures,
                     backoff_until, updated_at
@@ -234,6 +236,10 @@ class SchedulerStateRepository(BaseRepository):
 
             row = result.fetchone()
             persisted_id = row[0] if row else None
+
+            if persisted_id is None:
+                raise RuntimeError("Failed to retrieve persisted scheduler state ID")
+
             logger.debug(
                 f"Persisted scheduler state: id={persisted_id}, "
                 f"state={state.current_state}, api_calls_today={state.api_calls_today}"
