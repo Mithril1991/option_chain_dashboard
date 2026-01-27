@@ -113,3 +113,23 @@ export const getSeverityColor = (severity: string): string => {
       return 'text-gray-600 bg-gray-50'
   }
 }
+
+export const formatUptime = (seconds: number): string => {
+  if (seconds < 60) return `${seconds}s`
+  if (seconds < 3600) return `${Math.floor(seconds / 60)}m`
+
+  const hours = Math.floor(seconds / 3600)
+  const minutes = Math.floor((seconds % 3600) / 60)
+  const days = Math.floor(hours / 24)
+  const remainingHours = hours % 24
+
+  if (days > 0) {
+    return remainingHours > 0
+      ? `${days}d ${remainingHours}h`
+      : `${days}d`
+  }
+
+  return remainingHours > 0
+    ? `${remainingHours}h ${minutes}m`
+    : `${minutes}m`
+}
