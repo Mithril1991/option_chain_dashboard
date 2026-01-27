@@ -257,8 +257,10 @@ def load_configuration(config_path: str) -> tuple[str, bool]:
         if not config_file.exists():
             raise FileNotFoundError(f"Configuration file not found: {config_path}")
 
-        # Get configuration manager (loads config.yaml)
-        config_mgr = get_config_manager()
+        # Get configuration manager (loads config.yaml from specified directory)
+        config_file = Path(config_path)
+        config_mgr = get_config_manager(config_dir=config_file.parent)
+        config_mgr.reload()
         config_hash = config_mgr.config_hash
         logger.info(f"Configuration loaded: hash={config_hash[:16]}...")
 
@@ -478,7 +480,7 @@ Python Version:     {sys.version.split()[0]}
         initialize_database()
 
         # Load configuration
-        config_hash, demo_mode = load_configuration("inputs/config.yaml")
+        config_hash, demo_mode = load_configuration(args.config_path)
 
         # Print startup banner
         print_startup_banner("inputs/config.yaml", demo_mode, config_hash)
