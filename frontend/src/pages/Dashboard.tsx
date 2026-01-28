@@ -3,7 +3,6 @@ import { useNavigate } from 'react-router-dom'
 import { useHealthCheckIntegration, useTriggerScanIntegration } from '@hooks/useApiIntegration'
 import { useLatestAlertsSummary } from '@hooks/useApi'
 import { MetricsRow } from '@components/MetricsRow'
-import { AlertCard } from '@components/AlertCard'
 import { formatDate, formatRelativeTime } from '@utils/formatters'
 import type { AlertSummaryResponse } from '@types/api'
 
@@ -214,19 +213,9 @@ export const Dashboard: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Strategies as badges */}
-                    {alert.strategies && alert.strategies.length > 0 && (
-                      <div className="flex gap-2 flex-wrap">
-                        {alert.strategies.map((strategy, idx) => (
-                          <span
-                            key={idx}
-                            className="badge inline-block px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded"
-                          >
-                            {strategy}
-                          </span>
-                        ))}
-                      </div>
-                    )}
+                    <p className="text-xs text-blue-600">
+                      Click to view full details
+                    </p>
                   </div>
 
                   {/* Timestamp */}
