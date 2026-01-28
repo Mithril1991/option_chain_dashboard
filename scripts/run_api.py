@@ -40,6 +40,7 @@ from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 from contextlib import asynccontextmanager
 from pathlib import Path as PathlibPath
+import yaml
 
 from fastapi import FastAPI, Query, Path, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -936,7 +937,10 @@ async def get_watchlist() -> WatchlistResponse:
     try:
         config_mgr = get_config_manager()
         config = config_mgr.config
-        tickers = config.get("watchlist", [])
+        config_dict = config.model_dump() if hasattr(config, "model_dump") else config.dict()
+        tickers = config_dict.get("watchlist", [])
+        if not tickers:
+            tickers = config.scan.symbols
         logger.debug(f"Watchlist fetched: {len(tickers)} tickers")
         return WatchlistResponse(
             tickers=tickers,
@@ -995,10 +999,16 @@ async def update_watchlist(request: WatchlistUpdateRequest) -> WatchlistUpdateRe
 
         ticker = request.ticker.upper()
 
-        # Get current watchlist
+        # Get current watchlist from config file
         config_mgr = get_config_manager()
-        config = config_mgr.config
-        watchlist = config.get("watchlist", [])
+        config_path = config_mgr.config_dir / "config.yaml"
+        if not config_path.exists():
+            raise HTTPException(status_code=500, detail="config.yaml not found")
+
+        with open(config_path, "r") as f:
+            config_data = yaml.safe_load(f) or {}
+
+        watchlist = config_data.get("watchlist", [])
 
         # Perform action
         if request.action == "add":
@@ -1014,8 +1024,13 @@ async def update_watchlist(request: WatchlistUpdateRequest) -> WatchlistUpdateRe
             else:
                 message = f"Ticker {ticker} not in watchlist"
 
-        # Update config in memory
-        config["watchlist"] = watchlist
+        # Persist updated watchlist to config.yaml
+        config_data["watchlist"] = watchlist
+        with open(config_path, "w") as f:
+            yaml.safe_dump(config_data, f, sort_keys=False)
+
+        # Reload config in memory to keep API consistent
+        config_mgr.reload()
 
         # Log the change
         logger.info(f"Watchlist updated: {request.action} {ticker}")
