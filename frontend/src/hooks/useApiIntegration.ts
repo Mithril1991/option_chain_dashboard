@@ -96,9 +96,9 @@ export const useAlertsByTickerIntegration = (ticker: string) => {
 /**
  * Combine option chain hook with store management
  */
-export const useOptionChainIntegration = (ticker: string) => {
+export const useOptionChainIntegration = (ticker: string, expiration?: string) => {
   const { optionChains, chainsError, setOptionChain, setChainError } = useApiStore()
-  const apiChain = useOptionChain(ticker)
+  const apiChain = useOptionChain(ticker, expiration)
 
   useEffect(() => {
     setChainError(ticker, apiChain.error)

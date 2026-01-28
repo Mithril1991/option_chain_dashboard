@@ -1425,28 +1425,89 @@ async def get_ticker_alerts(
 # ============================================================================
 
 
-@app.get("/options/{ticker}/snapshot", response_model=ChainSnapshotResponse, tags=["Options"])
-async def get_options_snapshot(
+@app.get("/options/{ticker}/expirations", tags=["Options"])
+async def get_option_expirations(
     ticker: str = Path(..., description="Stock ticker symbol")
-) -> ChainSnapshotResponse:
+) -> dict[str, list[str]]:
     """
-    Get current options chain snapshot for a ticker.
+    Get available expiration dates for a ticker's options.
 
-    Returns the current bid/ask, Greeks, and other contract details for both
-    call and put options on a specific ticker. Includes both the nearest and
-    secondary expirations.
+    Returns list of ISO 8601 date strings representing available option
+    expiration dates for the given ticker, sorted in ascending order.
 
     Args:
         ticker: Stock ticker symbol (e.g., "AAPL")
 
     Returns:
-        ChainSnapshotResponse with calls and puts for both expirations
+        Dictionary with 'expirations' list of ISO 8601 date strings
+
+    Example:
+        GET /options/AAPL/expirations
+        {
+            "expirations": ["2026-02-20", "2026-03-20", "2026-04-17"],
+            "timestamp": "2026-01-26T15:30:00Z"
+        }
+    """
+    try:
+        # Load chain snapshots and extract unique expirations
+        chains = load_chains_from_json(ticker=ticker, limit=100)  # Load up to 100 chains
+
+        if not chains:
+            logger.info(f"No chain snapshots available for ticker: {ticker}")
+            return {
+                "expirations": [],
+                "timestamp": get_utc_iso_timestamp()
+            }
+
+        # Extract unique expirations and sort
+        expirations_set = set()
+        for chain in chains:
+            exp = chain.get("expiration")
+            if exp:
+                expirations_set.add(exp)
+
+        # Sort expirations in ascending order (nearest first)
+        expirations = sorted(list(expirations_set))
+
+        logger.debug(f"Found {len(expirations)} expirations for {ticker}: {expirations}")
+
+        return {
+            "expirations": expirations,
+            "timestamp": get_utc_iso_timestamp()
+        }
+    except Exception as e:
+        logger.error(f"Failed to get expirations for {ticker}: {e}")
+        return {
+            "expirations": [],
+            "timestamp": get_utc_iso_timestamp(),
+            "error": str(e)
+        }
+
+
+@app.get("/options/{ticker}/snapshot", response_model=ChainSnapshotResponse, tags=["Options"])
+async def get_options_snapshot(
+    ticker: str = Path(..., description="Stock ticker symbol"),
+    expiration: Optional[str] = Query(None, description="Optional specific expiration date (YYYY-MM-DD)")
+) -> ChainSnapshotResponse:
+    """
+    Get current options chain snapshot for a ticker.
+
+    Returns the current bid/ask, Greeks, and other contract details for both
+    call and put options on a specific ticker. Can optionally filter to a specific expiration.
+
+    Args:
+        ticker: Stock ticker symbol (e.g., "AAPL")
+        expiration: Optional specific expiration date (YYYY-MM-DD). If not provided, returns nearest expiration.
+
+    Returns:
+        ChainSnapshotResponse with calls and puts for specified/nearest expiration
 
     Raises:
         HTTPException: 404 if no data available, 500 if query fails
 
     Example:
         GET /options/AAPL/snapshot
+        GET /options/AAPL/snapshot?expiration=2026-02-20
         {
             "ticker": "AAPL",
             "timestamp": "2026-01-26T15:30:00Z",
@@ -1457,21 +1518,26 @@ async def get_options_snapshot(
         }
     """
     try:
-        # Load chain snapshot from JSON file (Hybrid Approach - Option C)
-        chains = load_chains_from_json(ticker=ticker, limit=1)
+        # Load chain snapshots from JSON file (Hybrid Approach - Option C)
+        chains = load_chains_from_json(ticker=ticker, limit=10)  # Load up to 10 to find requested expiration
 
+        # If expiration is specified, filter to that exact expiration
+        if expiration and chains:
+            chains = [c for c in chains if c.get("expiration") == expiration]
+
+        # If no chains found, return empty response
         if not chains:
-            logger.info(f"No chain snapshot available for ticker: {ticker}")
-            # Return minimal response instead of 404 for consistency
+            logger.info(f"No chain snapshot available for ticker: {ticker}" + (f" expiration: {expiration}" if expiration else ""))
             return ChainSnapshotResponse(
                 ticker=ticker,
                 timestamp=get_utc_iso_timestamp(),
                 underlying_price=0,
-                expiration="",
+                expiration=expiration or "",
                 calls=[],
                 puts=[],
             )
 
+        # Use first matching chain (or nearest if no specific expiration requested)
         chain = chains[0]
 
         # Convert to response format

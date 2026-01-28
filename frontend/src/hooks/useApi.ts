@@ -233,13 +233,15 @@ export const useAlertsByTicker = (ticker: string): UseApiState<AlertResponse[]> 
 }
 
 /**
- * Fetch options chain snapshot for a ticker
+ * Fetch options chain snapshot for a ticker, optionally filtered by expiration
  */
-export const useOptionChain = (ticker: string): UseApiState<ChainSnapshot> & { refetch: () => Promise<void> } => {
-  const url = `/options/${ticker}/snapshot`
+export const useOptionChain = (ticker: string, expiration?: string): UseApiState<ChainSnapshot> & { refetch: () => Promise<void> } => {
+  const url = expiration
+    ? `/options/${ticker}/snapshot?expiration=${encodeURIComponent(expiration)}`
+    : `/options/${ticker}/snapshot`
   return useApi<ChainSnapshot>(url, {
     immediate: !!ticker,
-    dependencies: [ticker]
+    dependencies: [ticker, expiration]
   })
 }
 
@@ -276,4 +278,44 @@ export const useTriggerScan = (): {
   data: ScanResponse | null
 } => {
   return useApiPost<never, ScanResponse>('/scan/run')
+}
+
+/**
+ * Fetch available option expirations for a ticker
+ */
+export const useOptionExpirations = (ticker: string): UseApiState<string[]> & { refetch: () => Promise<void> } => {
+  const [state, setState] = useState<UseApiState<string[]>>({
+    data: null,
+    loading: false,
+    error: null
+  })
+  const apiClient = require('@utils/apiClient').default
+
+  const fetchExpirations = useCallback(async () => {
+    if (!ticker) {
+      setState({ data: [], loading: false, error: null })
+      return
+    }
+
+    setState(prev => ({ ...prev, loading: true, error: null }))
+    try {
+      const response = await apiClient.get<any>(`/options/${ticker}/expirations`)
+      const expirations = response.data?.expirations || []
+      setState({ data: expirations, loading: false, error: null })
+    } catch (err) {
+      const error = err instanceof Error ? err : new Error('Failed to load expirations')
+      setState({ data: [], loading: false, error })
+    }
+  }, [ticker])
+
+  useEffect(() => {
+    if (ticker) {
+      fetchExpirations()
+    }
+  }, [ticker, fetchExpirations])
+
+  return {
+    ...state,
+    refetch: fetchExpirations
+  }
 }
