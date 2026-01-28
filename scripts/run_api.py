@@ -40,6 +40,7 @@ from datetime import datetime, timezone
 from typing import Optional, List, Dict, Any
 from contextlib import asynccontextmanager
 from pathlib import Path as PathlibPath
+import yaml
 
 from fastapi import FastAPI, Query, Path, HTTPException, Request
 from fastapi.responses import JSONResponse
@@ -296,6 +297,38 @@ class ConfigUpdateResponse(BaseModel):
     mode: Optional[str] = Field(None, description="New data mode ('demo' or 'production')")
     demo_mode: Optional[bool] = Field(None, description="New demo_mode flag value (True=demo, False=production)")
     message: Optional[str] = Field(None, description="Status message for debugging")
+    timestamp: str = Field(..., description="UTC ISO 8601 timestamp of update")
+
+
+class WatchlistResponse(BaseModel):
+    """Watchlist response model.
+
+    Returns the current list of monitored tickers from configuration.
+    """
+
+    tickers: List[str] = Field(..., description="List of ticker symbols to monitor")
+    lastUpdated: str = Field(..., description="UTC ISO 8601 timestamp of last update")
+
+
+class WatchlistUpdateRequest(BaseModel):
+    """Request model for updating watchlist.
+
+    Allows adding or removing tickers from the monitoring list.
+    """
+
+    action: str = Field(..., description="Action to perform: 'add' or 'remove'")
+    ticker: str = Field(..., description="Ticker symbol (e.g., 'AAPL')")
+
+
+class WatchlistUpdateResponse(BaseModel):
+    """Response model for watchlist updates.
+
+    Confirms the watchlist operation and returns the updated list.
+    """
+
+    status: str = Field(..., description="Update status ('updated' or 'error')")
+    tickers: List[str] = Field(..., description="Updated list of ticker symbols")
+    message: Optional[str] = Field(None, description="Status message")
     timestamp: str = Field(..., description="UTC ISO 8601 timestamp of update")
 
 
@@ -958,6 +991,139 @@ async def reload_config() -> ConfigReloadResponse:
     except Exception as e:
         logger.error(f"Configuration reload failed: {e}")
         raise HTTPException(status_code=500, detail=f"Configuration reload failed: {e}")
+
+
+@app.get("/config/watchlist", response_model=WatchlistResponse, tags=["Config"])
+async def get_watchlist() -> WatchlistResponse:
+    """
+    Get current watchlist (list of monitored tickers).
+
+    Returns the list of ticker symbols that are currently being monitored.
+    This list is read from the configuration file.
+
+    Returns:
+        WatchlistResponse with tickers and last updated timestamp
+
+    Example:
+        GET /config/watchlist
+        {
+            "tickers": ["SOFI", "AMD", "NVDA", "TSLA", "AAPL"],
+            "lastUpdated": "2026-01-26T15:30:45.123456Z"
+        }
+    """
+    try:
+        config_mgr = get_config_manager()
+        config = config_mgr.config
+        config_dict = config.model_dump() if hasattr(config, "model_dump") else config.dict()
+        tickers = config_dict.get("watchlist", [])
+        if not tickers:
+            tickers = config.scan.symbols
+        logger.debug(f"Watchlist fetched: {len(tickers)} tickers")
+        return WatchlistResponse(
+            tickers=tickers,
+            lastUpdated=get_utc_iso_timestamp(),
+        )
+    except Exception as e:
+        logger.error(f"Failed to fetch watchlist: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to fetch watchlist: {e}")
+
+
+@app.post("/config/watchlist", response_model=WatchlistUpdateResponse, tags=["Config"])
+async def update_watchlist(request: WatchlistUpdateRequest) -> WatchlistUpdateResponse:
+    """
+    Add or remove a ticker from the watchlist.
+
+    Updates the watchlist in configuration. The updated list persists in the
+    config.yaml file for future application restarts.
+
+    Args:
+        request: WatchlistUpdateRequest with action ('add' or 'remove') and ticker
+
+    Returns:
+        WatchlistUpdateResponse with updated tickers list and status
+
+    Raises:
+        HTTPException: 400 if action/ticker invalid, 500 if update fails
+
+    Example:
+        POST /config/watchlist
+        {
+            "action": "add",
+            "ticker": "AAPL"
+        }
+
+        Response:
+        {
+            "status": "updated",
+            "tickers": ["SOFI", "AMD", "NVDA", "TSLA", "AAPL", "AAPL"],
+            "message": "Ticker AAPL added to watchlist",
+            "timestamp": "2026-01-26T15:30:45.123456Z"
+        }
+    """
+    try:
+        # Validate input
+        if not request.action or request.action not in ["add", "remove"]:
+            raise HTTPException(
+                status_code=400,
+                detail="action must be 'add' or 'remove'"
+            )
+
+        if not request.ticker or len(request.ticker) < 1 or len(request.ticker) > 10:
+            raise HTTPException(
+                status_code=400,
+                detail="ticker must be 1-10 characters"
+            )
+
+        ticker = request.ticker.upper()
+
+        # Get current watchlist from config file
+        config_mgr = get_config_manager()
+        config_path = config_mgr.config_dir / "config.yaml"
+        if not config_path.exists():
+            raise HTTPException(status_code=500, detail="config.yaml not found")
+
+        with open(config_path, "r") as f:
+            config_data = yaml.safe_load(f) or {}
+
+        watchlist = config_data.get("watchlist", [])
+
+        # Perform action
+        if request.action == "add":
+            if ticker not in watchlist:
+                watchlist.append(ticker)
+                message = f"Ticker {ticker} added to watchlist"
+            else:
+                message = f"Ticker {ticker} already in watchlist"
+        else:  # remove
+            if ticker in watchlist:
+                watchlist.remove(ticker)
+                message = f"Ticker {ticker} removed from watchlist"
+            else:
+                message = f"Ticker {ticker} not in watchlist"
+
+        # Persist updated watchlist to config.yaml
+        config_data["watchlist"] = watchlist
+        with open(config_path, "w") as f:
+            yaml.safe_dump(config_data, f, sort_keys=False)
+
+        # Reload config in memory to keep API consistent
+        config_mgr.reload()
+
+        # Log the change
+        logger.info(f"Watchlist updated: {request.action} {ticker}")
+
+        return WatchlistUpdateResponse(
+            status="updated",
+            tickers=watchlist,
+            message=message,
+            timestamp=get_utc_iso_timestamp(),
+        )
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to update watchlist: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to update watchlist: {e}")
 
 
 # ============================================================================
