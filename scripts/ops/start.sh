@@ -8,8 +8,9 @@ echo "  Option Chain Dashboard - Startup"
 echo "======================================================================"
 echo ""
 
-# Get the project directory
-PROJECT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# Get the project directory (repo root)
+SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+PROJECT_DIR="$(cd "$SCRIPT_DIR/../.." && pwd)"
 cd "$PROJECT_DIR"
 
 echo "✓ Project directory: $PROJECT_DIR"
