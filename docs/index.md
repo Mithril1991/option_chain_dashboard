@@ -18,7 +18,7 @@ This index maps the top-level documentation to its new locations. Use this as th
 - `docs/implementation/OPTION_C_IMPLEMENTATION.md`
 - `docs/implementation/IMPLEMENTATION_CHECKLIST.md`
 - `docs/implementation/IMPLEMENTATION_SUMMARY.md`
-- `docs/implementation/IMPLEMENTATION_SUMMARY.txt`
+- `archive/IMPLEMENTATION_SUMMARY.txt`
 - `docs/RISK_GATE_IMPLEMENTATION.md`
 - `docs/EXPLANATION_GENERATOR_USAGE.md`
 
@@ -34,17 +34,17 @@ This index maps the top-level documentation to its new locations. Use this as th
 - `docs/connectivity/CONNECTIVITY_ANALYSIS.md`
 - `docs/connectivity/CONNECTIVITY_DIAGRAMS.md`
 - `docs/connectivity/CONNECTIVITY_FIX_CHECKLIST.md`
-- `docs/connectivity/CONNECTIVITY_SUMMARY.txt`
+- `archive/CONNECTIVITY_SUMMARY.txt`
 - `docs/connectivity/README_CONNECTIVITY_FIX.md`
 
 ## Testing & QA
 - `docs/testing/E2E_TEST_INDEX.txt`
 - `docs/testing/E2E_TEST_REPORT.md`
-- `docs/testing/E2E_TEST_SUMMARY.txt`
+- `archive/E2E_TEST_SUMMARY.txt`
 - `docs/testing/TEST_INDEX.md`
 - `docs/testing/TEST_QUICK_REFERENCE.txt`
 - `docs/testing/TEST_RESULTS_JSON_API.md`
-- `docs/testing/TEST_RESULTS.txt`
+- `archive/TEST_RESULTS.txt`
 - `docs/testing/README_TEST_RESULTS.md`
 - `docs/testing/HYBRID_TESTING_GUIDE.md`
 
