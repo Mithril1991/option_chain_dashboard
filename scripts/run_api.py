@@ -1165,9 +1165,17 @@ async def get_latest_alerts(
         }
     """
     try:
-        # Load alerts from JSON file (Hybrid Approach - Option C)
-        alerts = load_alerts_from_json(min_score=min_score, limit=limit)
-        logger.debug(f"Retrieved {len(alerts)} alerts from JSON (limit={limit}, min_score={min_score})")
+        # Query alerts directly from database (MUCH faster than JSON file loading)
+        if not alert_repo:
+            raise HTTPException(status_code=500, detail="Alert repository not initialized")
+
+        # Get alerts from database
+        alerts = alert_repo.get_latest_alerts(limit=limit * 2)  # Fetch more to filter by score
+
+        # Filter by min_score
+        filtered_alerts = [a for a in alerts if a.get("score", 0) >= min_score][:limit]
+
+        logger.debug(f"Retrieved {len(filtered_alerts)} alerts from database (limit={limit}, min_score={min_score})")
 
         alert_responses = [
             AlertResponse(
@@ -1175,19 +1183,21 @@ async def get_latest_alerts(
                 ticker=alert.get("ticker", ""),
                 detector_name=alert.get("detector_name", ""),
                 score=alert.get("score", 0),
-                metrics=alert.get("alert_data", alert.get("alert_json", {})) if isinstance(alert.get("alert_data"), dict) else json.loads(alert.get("alert_json", "{}")),
+                metrics=alert.get("alert_data", {}),  # alert_data is already parsed dict from repository
                 explanation={},  # Can be extended with LLM explanations in future
                 strategies=[],   # Can be mapped from detector type in future
                 created_at=alert.get("created_at", get_utc_iso_timestamp()),
             )
-            for alert in alerts
+            for alert in filtered_alerts
         ]
 
         return AlertsResponse(
             alerts=alert_responses,
-            total_count=len(alerts),
+            total_count=len(filtered_alerts),
             timestamp=get_utc_iso_timestamp(),
         )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to get latest alerts: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get alerts: {e}")
@@ -1228,9 +1238,17 @@ async def get_latest_alerts_summary(
         }
     """
     try:
-        # Load alerts from JSON file
-        alerts = load_alerts_from_json(min_score=min_score, limit=limit)
-        logger.debug(f"Retrieved {len(alerts)} alert summaries from JSON (limit={limit}, min_score={min_score})")
+        # Query alerts directly from database (MUCH faster than JSON file loading)
+        if not alert_repo:
+            raise HTTPException(status_code=500, detail="Alert repository not initialized")
+
+        # Get alerts from database
+        alerts = alert_repo.get_latest_alerts(limit=limit * 2)  # Fetch more to filter by score
+
+        # Filter by min_score
+        filtered_alerts = [a for a in alerts if a.get("score", 0) >= min_score][:limit]
+
+        logger.debug(f"Retrieved {len(filtered_alerts)} alert summaries from database (limit={limit}, min_score={min_score})")
 
         # Convert to lightweight summary responses (NO metrics parsing)
         summary_responses = [
@@ -1241,14 +1259,16 @@ async def get_latest_alerts_summary(
                 score=alert.get("score", 0),
                 created_at=alert.get("created_at", get_utc_iso_timestamp()),
             )
-            for alert in alerts
+            for alert in filtered_alerts
         ]
 
         return AlertsSummaryResponse(
             alerts=summary_responses,
-            total_count=len(alerts),
+            total_count=len(summary_responses),
             timestamp=get_utc_iso_timestamp(),
         )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to get alert summaries: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get alerts: {e}")
