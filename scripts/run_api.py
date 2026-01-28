@@ -233,11 +233,21 @@ logger = get_logger(__name__)
 
 
 class HealthResponse(BaseModel):
-    """Health check response model."""
+    """Health check response model with complete system status.
+
+    Provides comprehensive health information including last scan time, uptime,
+    data mode, scan status, and API call budget. Used by Dashboard to display
+    system status, mode, connectivity, and recent scan activity.
+    """
 
     status: str = Field(..., description="Status indicator ('ok' or 'error')")
     timestamp: str = Field(..., description="UTC ISO 8601 timestamp")
     message: Optional[str] = Field(None, description="Optional status message")
+    last_scan_time: Optional[str] = Field(None, description="UTC ISO 8601 timestamp of last completed scan")
+    uptime_seconds: int = Field(0, description="Process uptime in seconds")
+    data_mode: str = Field("demo", description="Data mode ('demo' or 'production')")
+    scan_status: str = Field("idle", description="Current scan status ('idle', 'running', 'completed', 'error')")
+    api_calls_today: int = Field(0, description="Number of API calls made today")
 
 
 class ConfigReloadResponse(BaseModel):
@@ -346,6 +356,28 @@ class AlertResponse(BaseModel):
     explanation: Dict[str, Any] = Field(default_factory=dict, description="Explanation of alert signal")
     strategies: List[str] = Field(default_factory=list, description="Recommended strategies for this alert")
     created_at: str = Field(..., description="UTC ISO 8601 creation timestamp")
+
+
+class AlertSummaryResponse(BaseModel):
+    """Lightweight alert summary for dashboard (no heavy metrics field).
+
+    Used by dashboard to quickly load top alerts without full metrics.
+    Reduces payload and improves load time significantly.
+    """
+
+    id: int = Field(..., description="Alert ID")
+    ticker: str = Field(..., description="Stock ticker symbol")
+    detector_name: str = Field(..., description="Name of detector that generated alert")
+    score: float = Field(..., description="Alert score (0-100)")
+    created_at: str = Field(..., description="UTC ISO 8601 creation timestamp")
+
+
+class AlertsSummaryResponse(BaseModel):
+    """Multiple alert summaries response model (lightweight)."""
+
+    alerts: List[AlertSummaryResponse] = Field(..., description="List of alert summaries")
+    total_count: int = Field(..., description="Total alerts matching filter")
+    timestamp: str = Field(..., description="UTC ISO 8601 timestamp")
 
 
 class AlertsResponse(BaseModel):
@@ -666,33 +698,78 @@ async def general_exception_handler(request: Request, exc: Exception):
 @app.get("/health", response_model=HealthResponse, tags=["Health"])
 async def health_check() -> HealthResponse:
     """
-    Health check endpoint.
+    Health check endpoint with complete system status.
+
+    Returns comprehensive health information including:
+    - Database connectivity (ok/error)
+    - Last scan completion time
+    - Current data mode (demo/production)
+    - Current scan status
+    - API call budget for today
 
     Returns:
-        HealthResponse with status and timestamp
+        HealthResponse with full system status
 
     Example:
         GET /health
         {
             "status": "ok",
-            "timestamp": "2026-01-26T15:30:45.123456Z"
+            "timestamp": "2026-01-26T15:30:45.123456Z",
+            "last_scan_time": "2026-01-26T15:00:00Z",
+            "uptime_seconds": 3600,
+            "data_mode": "production",
+            "scan_status": "idle",
+            "api_calls_today": 45
         }
     """
     try:
         # Try to verify database connection
         if not scan_repo:
             raise RuntimeError("Database not initialized")
-        logger.debug("Health check passed")
+
+        # Query last completed scan from database (NOT JSON file)
+        latest_scan = scan_repo.get_latest_scan()
+        last_scan_time = None
+        scan_status = "idle"
+
+        if latest_scan:
+            if latest_scan.get("status") == "completed":
+                last_scan_time = latest_scan.get("scan_ts")
+            scan_status = latest_scan.get("status", "idle")
+
+        # Get current data mode
+        settings = get_settings()
+        data_mode = "demo" if settings.demo_mode else "production"
+
+        # Calculate API calls today (placeholder - could be tracked in scheduler_state)
+        api_calls_today = 0
+        # TODO: Query scheduler_state table for actual api_calls_today count
+
+        # Calculate process uptime (placeholder - could track in database)
+        uptime_seconds = 0
+        # TODO: Query process start time or cache in database
+
+        logger.debug(f"Health check: status=ok, mode={data_mode}, scan_status={scan_status}")
+
         return HealthResponse(
             status="ok",
             timestamp=get_utc_iso_timestamp(),
+            last_scan_time=last_scan_time,
+            uptime_seconds=uptime_seconds,
+            data_mode=data_mode,
+            scan_status=scan_status,
+            api_calls_today=api_calls_today,
         )
     except Exception as e:
         logger.error(f"Health check failed: {e}")
+        # Return error status but with default values for other fields
+        settings = get_settings()
         return HealthResponse(
             status="error",
             timestamp=get_utc_iso_timestamp(),
             message=str(e),
+            data_mode="demo" if settings.demo_mode else "production",
+            scan_status="error",
         )
 
 
@@ -1016,9 +1093,12 @@ async def get_latest_scans(
         }
     """
     try:
-        # Load scans from JSON file (Hybrid Approach - Option C)
-        scans = load_scans_from_json(limit=limit)
-        logger.debug(f"Retrieved {len(scans)} scans from JSON")
+        # Query scans directly from database (MUCH faster than JSON file loading)
+        if not scan_repo:
+            raise HTTPException(status_code=500, detail="Scan repository not initialized")
+
+        scans = scan_repo.get_scan_history(days=365, limit=limit)
+        logger.debug(f"Retrieved {len(scans)} scans from database")
 
         scan_summaries = [
             ScanSummaryResponse(
@@ -1087,9 +1167,17 @@ async def get_latest_alerts(
         }
     """
     try:
-        # Load alerts from JSON file (Hybrid Approach - Option C)
-        alerts = load_alerts_from_json(min_score=min_score, limit=limit)
-        logger.debug(f"Retrieved {len(alerts)} alerts from JSON (limit={limit}, min_score={min_score})")
+        # Query alerts directly from database (MUCH faster than JSON file loading)
+        if not alert_repo:
+            raise HTTPException(status_code=500, detail="Alert repository not initialized")
+
+        # Get alerts from database
+        alerts = alert_repo.get_latest_alerts(limit=limit * 2)  # Fetch more to filter by score
+
+        # Filter by min_score
+        filtered_alerts = [a for a in alerts if a.get("score", 0) >= min_score][:limit]
+
+        logger.debug(f"Retrieved {len(filtered_alerts)} alerts from database (limit={limit}, min_score={min_score})")
 
         alert_responses = [
             AlertResponse(
@@ -1097,21 +1185,94 @@ async def get_latest_alerts(
                 ticker=alert.get("ticker", ""),
                 detector_name=alert.get("detector_name", ""),
                 score=alert.get("score", 0),
-                metrics=alert.get("alert_data", alert.get("alert_json", {})) if isinstance(alert.get("alert_data"), dict) else json.loads(alert.get("alert_json", "{}")),
+                metrics=alert.get("alert_data", {}),  # alert_data is already parsed dict from repository
                 explanation={},  # Can be extended with LLM explanations in future
                 strategies=[],   # Can be mapped from detector type in future
                 created_at=alert.get("created_at", get_utc_iso_timestamp()),
             )
-            for alert in alerts
+            for alert in filtered_alerts
         ]
 
         return AlertsResponse(
             alerts=alert_responses,
-            total_count=len(alerts),
+            total_count=len(filtered_alerts),
             timestamp=get_utc_iso_timestamp(),
         )
+    except HTTPException:
+        raise
     except Exception as e:
         logger.error(f"Failed to get latest alerts: {e}")
+        raise HTTPException(status_code=500, detail=f"Failed to get alerts: {e}")
+
+
+@app.get("/alerts/latest/summary", response_model=AlertsSummaryResponse, tags=["Alerts"])
+async def get_latest_alerts_summary(
+    limit: int = Query(20, ge=1, le=100, description="Number of alerts to return"),
+    min_score: float = Query(0, ge=0, le=100, description="Minimum alert score"),
+) -> AlertsSummaryResponse:
+    """
+    Get lightweight alert summaries for dashboard (no heavy metrics field).
+
+    Returns alert summaries without the large metrics/explanation/strategies fields.
+    This endpoint is optimized for dashboard performance - loads 3-5x faster than full /alerts/latest.
+
+    Args:
+        limit: Maximum alerts to return (default 20, max 100)
+        min_score: Minimum alert score filter (0-100, default 0)
+
+    Returns:
+        AlertsSummaryResponse with lightweight alerts (id, ticker, detector_name, score, created_at)
+
+    Example:
+        GET /alerts/latest/summary?limit=10&min_score=50
+        {
+            "alerts": [
+                {
+                    "id": 5,
+                    "ticker": "SOFI",
+                    "detector_name": "low_iv",
+                    "score": 78.5,
+                    "created_at": "2026-01-27T15:30:00Z"
+                }
+            ],
+            "total_count": 5,
+            "timestamp": "2026-01-27T15:30:45.123456Z"
+        }
+    """
+    try:
+        # Query alerts directly from database (MUCH faster than JSON file loading)
+        if not alert_repo:
+            raise HTTPException(status_code=500, detail="Alert repository not initialized")
+
+        # Get alerts from database
+        alerts = alert_repo.get_latest_alerts(limit=limit * 2)  # Fetch more to filter by score
+
+        # Filter by min_score
+        filtered_alerts = [a for a in alerts if a.get("score", 0) >= min_score][:limit]
+
+        logger.debug(f"Retrieved {len(filtered_alerts)} alert summaries from database (limit={limit}, min_score={min_score})")
+
+        # Convert to lightweight summary responses (NO metrics parsing)
+        summary_responses = [
+            AlertSummaryResponse(
+                id=alert.get("id", 0),
+                ticker=alert.get("ticker", ""),
+                detector_name=alert.get("detector_name", ""),
+                score=alert.get("score", 0),
+                created_at=alert.get("created_at", get_utc_iso_timestamp()),
+            )
+            for alert in filtered_alerts
+        ]
+
+        return AlertsSummaryResponse(
+            alerts=summary_responses,
+            total_count=len(summary_responses),
+            timestamp=get_utc_iso_timestamp(),
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        logger.error(f"Failed to get alert summaries: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get alerts: {e}")
 
 

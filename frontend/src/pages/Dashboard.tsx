@@ -1,39 +1,60 @@
 import React, { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useHealthCheckIntegration, useLatestAlertsIntegration, useTriggerScanIntegration } from '@hooks/useApiIntegration'
+import { useHealthCheckIntegration, useTriggerScanIntegration } from '@hooks/useApiIntegration'
+import { useLatestAlertsSummary } from '@hooks/useApi'
 import { MetricsRow } from '@components/MetricsRow'
-import { AlertCard } from '@components/AlertCard'
 import { formatDate, formatRelativeTime } from '@utils/formatters'
-import type { AlertResponse } from '@types/api'
+import type { AlertSummaryResponse } from '@types/api'
 
 export const Dashboard: React.FC = () => {
   const navigate = useNavigate()
-  const [displayAlerts, setDisplayAlerts] = useState<AlertResponse[]>([])
+  const [displayAlerts, setDisplayAlerts] = useState<AlertSummaryResponse[]>([])
+  const [scanSuccess, setScanSuccess] = useState(false)
+  const [scanMessage, setScanMessage] = useState('')
 
   // API Integration Hooks
-  const { health, loading: healthLoading, error: healthError } = useHealthCheckIntegration()
-  const { alerts, loading: alertsLoading, error: alertsError } = useLatestAlertsIntegration(20)
+  const { health, loading: healthLoading, error: healthError, refetch: refetchHealth } = useHealthCheckIntegration()
+  const { data: alertsSummary, loading: alertsLoading, error: alertsError, refetch: refetchAlerts } = useLatestAlertsSummary(20)
   const { triggerScan, loading: scanLoading, error: scanError } = useTriggerScanIntegration()
 
   // Update display alerts when fresh data arrives
   useEffect(() => {
-    if (alerts && alerts.length > 0) {
-      setDisplayAlerts(alerts.slice(0, 10))
+    if (alertsSummary?.alerts && alertsSummary.alerts.length > 0) {
+      setDisplayAlerts(alertsSummary.alerts.slice(0, 10))
     }
-  }, [alerts])
+  }, [alertsSummary])
 
   // Calculate metrics
-  const totalAlertsToday = alerts?.length || 0
-  const highScoreAlerts = alerts?.filter((a) => a.score > 75).length || 0
-  const systemHealthy = health?.status === 'healthy'
-  const isApiConnected = !healthError && health?.status !== 'unhealthy'
+  const totalAlertsToday = alertsSummary?.alerts.length || 0
+  const highScoreAlerts = alertsSummary?.alerts.filter((a) => a.score > 75).length || 0
+  const systemHealthy = health?.status === 'ok'
+  const isApiConnected = !healthError && health?.status === 'ok'
 
-  // Handle scan trigger
+  // Handle scan trigger with success feedback and refetch
   const handleTriggerScan = async () => {
+    setScanSuccess(false)
+    setScanMessage('')
     try {
-      await triggerScan()
+      const result = await triggerScan()
+      if (result) {
+        setScanSuccess(true)
+        setScanMessage('Scan triggered successfully! Refreshing data...')
+
+        // Refetch health and alerts after successful scan
+        setTimeout(() => {
+          refetchHealth()
+          refetchAlerts()
+        }, 1000)
+
+        // Clear success message after 5 seconds
+        setTimeout(() => {
+          setScanSuccess(false)
+          setScanMessage('')
+        }, 5000)
+      }
     } catch (err) {
       console.error('Failed to trigger scan:', err)
+      setScanSuccess(false)
     }
   }
 
@@ -74,6 +95,13 @@ export const Dashboard: React.FC = () => {
         <h1 className="text-4xl font-bold text-gray-900">Option Chain Dashboard</h1>
         <p className="text-gray-600 mt-2">Overview</p>
       </div>
+
+      {/* Success Messages */}
+      {scanSuccess && (
+        <div className="mb-6 p-4 bg-green-50 border border-green-200 rounded-lg text-green-800">
+          <p className="font-semibold">✓ {scanMessage}</p>
+        </div>
+      )}
 
       {/* Error Messages */}
       {healthError && (
@@ -185,19 +213,9 @@ export const Dashboard: React.FC = () => {
                       </div>
                     </div>
 
-                    {/* Strategies as badges */}
-                    {alert.strategies && alert.strategies.length > 0 && (
-                      <div className="flex gap-2 flex-wrap">
-                        {alert.strategies.map((strategy, idx) => (
-                          <span
-                            key={idx}
-                            className="badge inline-block px-2 py-1 bg-blue-100 text-blue-800 text-xs font-medium rounded"
-                          >
-                            {strategy}
-                          </span>
-                        ))}
-                      </div>
-                    )}
+                    <p className="text-xs text-blue-600">
+                      Click to view full details
+                    </p>
                   </div>
 
                   {/* Timestamp */}
@@ -229,17 +247,22 @@ export const Dashboard: React.FC = () => {
           <div>
             <p className="text-sm font-medium text-gray-600 mb-2">Last Scan</p>
             <p className="text-lg text-gray-900">
-              {health?.timestamp
-                ? formatDate(health.timestamp, 'long')
+              {health?.last_scan_time
+                ? formatRelativeTime(health.last_scan_time)
                 : 'Never'}
             </p>
+            {health?.scan_status && health.scan_status !== 'idle' && (
+              <p className="text-xs text-gray-500 mt-1">
+                Status: {health.scan_status}
+              </p>
+            )}
           </div>
 
           {/* Data Mode */}
           <div>
             <p className="text-sm font-medium text-gray-600 mb-2">Data Mode</p>
             <p className="text-lg font-semibold text-blue-600">
-              {health?.status === 'healthy' ? 'Production' : 'Demo'}
+              {health?.data_mode ? (health.data_mode === 'demo' ? 'Demo' : 'Production') : 'Unknown'}
             </p>
           </div>
 
@@ -256,17 +279,30 @@ export const Dashboard: React.FC = () => {
                 {isApiConnected ? 'Connected' : 'Disconnected'}
               </p>
             </div>
+            {health?.api_calls_today !== undefined && (
+              <p className="text-xs text-gray-500 mt-1">
+                API calls today: {health.api_calls_today}
+              </p>
+            )}
           </div>
         </div>
 
         {/* Trigger Scan Button */}
-        <button
-          onClick={handleTriggerScan}
-          disabled={scanLoading}
-          className="btn-primary w-full px-4 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
-        >
-          {scanLoading ? 'Scanning...' : 'Trigger New Scan'}
-        </button>
+        <div className="flex flex-col gap-2">
+          <button
+            onClick={handleTriggerScan}
+            disabled={scanLoading}
+            className="btn-primary w-full px-4 py-3 bg-blue-600 text-white font-semibold rounded-lg hover:bg-blue-700 disabled:bg-gray-400 transition-colors"
+          >
+            {scanLoading ? 'Triggering Scan...' : 'Trigger New Scan'}
+          </button>
+          {scanError && (
+            <div className="p-3 bg-red-50 border border-red-200 rounded-lg text-red-800 text-sm">
+              <p className="font-semibold">Scan Trigger Failed</p>
+              <p>{scanError.message}</p>
+            </div>
+          )}
+        </div>
       </section>
     </div>
   )
