@@ -61,7 +61,7 @@ When accessing the dashboard from a different machine on the network:
    - Phase 4: Testing - 30 min
    - Phase 5: Documentation - 15 min
 
-### 5. **FILES_TO_MODIFY.md** (QUICK REFERENCE)
+### 5. **docs/project/FILES_TO_MODIFY.md** (QUICK REFERENCE)
    - Exact file paths to modify
    - Current code vs desired code
    - Exact line numbers
@@ -291,7 +291,7 @@ curl -X POST "http://192.168.1.16:8061/config/data-mode?mode=production"
 2. **Understand**: Read `CONNECTIVITY_ANALYSIS.md` for technical details
 3. **Visualize**: Review `CONNECTIVITY_DIAGRAMS.md` for diagrams
 4. **Implement**: Follow `CONNECTIVITY_FIX_CHECKLIST.md` step-by-step
-5. **Reference**: Use `FILES_TO_MODIFY.md` for exact code locations
+5. **Reference**: Use `docs/project/FILES_TO_MODIFY.md` for exact code locations
 
 ---
 
@@ -314,7 +314,7 @@ Each document answers different questions:
 - **"Why is it wrong?"** → CONNECTIVITY_ANALYSIS.md
 - **"Show me visually"** → CONNECTIVITY_DIAGRAMS.md
 - **"How do I fix it?"** → CONNECTIVITY_FIX_CHECKLIST.md
-- **"Where do I change code?"** → FILES_TO_MODIFY.md
+- **"Where do I change code?"** → docs/project/FILES_TO_MODIFY.md
 
 ---
 

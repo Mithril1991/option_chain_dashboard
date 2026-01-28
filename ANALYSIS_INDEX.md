@@ -74,7 +74,7 @@
    - **For**: Developers implementing fixes
      - **Read Time**: 30 minutes
 
-### 6. **FILES_TO_MODIFY.md**
+### 6. **docs/project/FILES_TO_MODIFY.md**
    - **Purpose**: Quick reference for code changes
    - **Content**:
      - Exact file paths
@@ -106,7 +106,7 @@
 
 ### "How do I fix it?"
 1. Read: **CONNECTIVITY_FIX_CHECKLIST.md** (30 min)
-2. Reference: **FILES_TO_MODIFY.md** (as needed)
+2. Reference: **docs/project/FILES_TO_MODIFY.md** (as needed)
 3. Implement: Follow step-by-step instructions
 4. **Done**: Dashboard works
 
@@ -237,7 +237,7 @@ README_CONNECTIVITY_FIX.md (START HERE)
     │   └─→ CONNECTIVITY_DIAGRAMS.md (Visual reference)
     │
     ├─→ CONNECTIVITY_FIX_CHECKLIST.md (Implementation)
-    │   └─→ FILES_TO_MODIFY.md (Code reference)
+    │   └─→ docs/project/FILES_TO_MODIFY.md (Code reference)
     │
     └─→ This document (Navigation)
 ```
@@ -265,7 +265,7 @@ A: Yes! 15 minutes gets you 95% working. Full fix takes 2.5 hours for remaining 
 A: Start with README_CONNECTIVITY_FIX.md, pick a path based on your role
 
 **Q: Can I implement without reading everything?**
-A: Yes! Just read FILES_TO_MODIFY.md and CONNECTIVITY_FIX_CHECKLIST.md
+A: Yes! Just read docs/project/FILES_TO_MODIFY.md and CONNECTIVITY_FIX_CHECKLIST.md
 
 ---
 
@@ -331,7 +331,7 @@ Do Path B + add configuration features:
 | CONNECTIVITY_ANALYSIS.md | ~20 KB | 20 min | No |
 | CONNECTIVITY_DIAGRAMS.md | ~15 KB | 15 min | Yes (diagrams) |
 | CONNECTIVITY_FIX_CHECKLIST.md | ~25 KB | 30 min | Yes (detailed) |
-| FILES_TO_MODIFY.md | ~12 KB | 15 min | Yes (exact) |
+| docs/project/FILES_TO_MODIFY.md | ~12 KB | 15 min | Yes (exact) |
 | ANALYSIS_INDEX.md | ~8 KB | 5 min | No |
 
 **Total**: ~89 KB, ~100 minutes to read everything
@@ -352,7 +352,7 @@ Do Path B + add configuration features:
 - [CONNECTIVITY_ANALYSIS.md](./CONNECTIVITY_ANALYSIS.md) - Technical deep dive
 - [CONNECTIVITY_DIAGRAMS.md](./CONNECTIVITY_DIAGRAMS.md) - Visual reference
 - [CONNECTIVITY_FIX_CHECKLIST.md](./CONNECTIVITY_FIX_CHECKLIST.md) - Implementation guide
-- [FILES_TO_MODIFY.md](./FILES_TO_MODIFY.md) - Code reference
+- [docs/project/FILES_TO_MODIFY.md](./docs/project/FILES_TO_MODIFY.md) - Code reference
 - [ANALYSIS_INDEX.md](./ANALYSIS_INDEX.md) - This document
 
 ---
