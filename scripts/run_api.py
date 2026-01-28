@@ -727,20 +727,19 @@ async def health_check() -> HealthResponse:
         if not scan_repo:
             raise RuntimeError("Database not initialized")
 
-        # Get last completed scan timestamp
-        latest_scans = load_scans_from_json(limit=1)
+        # Query last completed scan from database (NOT JSON file)
+        latest_scan = scan_repo.get_latest_scan()
         last_scan_time = None
-        if latest_scans and latest_scans[0].get("status") == "completed":
-            last_scan_time = latest_scans[0].get("created_at")
+        scan_status = "idle"
+
+        if latest_scan:
+            if latest_scan.get("status") == "completed":
+                last_scan_time = latest_scan.get("scan_ts")
+            scan_status = latest_scan.get("status", "idle")
 
         # Get current data mode
         settings = get_settings()
         data_mode = "demo" if settings.demo_mode else "production"
-
-        # Get scan status (from most recent scan)
-        scan_status = "idle"
-        if latest_scans:
-            scan_status = latest_scans[0].get("status", "idle")
 
         # Calculate API calls today (placeholder - could be tracked in scheduler_state)
         api_calls_today = 0
@@ -1094,9 +1093,12 @@ async def get_latest_scans(
         }
     """
     try:
-        # Load scans from JSON file (Hybrid Approach - Option C)
-        scans = load_scans_from_json(limit=limit)
-        logger.debug(f"Retrieved {len(scans)} scans from JSON")
+        # Query scans directly from database (MUCH faster than JSON file loading)
+        if not scan_repo:
+            raise HTTPException(status_code=500, detail="Scan repository not initialized")
+
+        scans = scan_repo.get_scan_history(days=365, limit=limit)
+        logger.debug(f"Retrieved {len(scans)} scans from database")
 
         scan_summaries = [
             ScanSummaryResponse(
