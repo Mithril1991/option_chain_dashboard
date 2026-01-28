@@ -174,7 +174,7 @@ exporter = JSONExporter(export_base_dir="/custom/path")
 
 - **HYBRID_APPROACH_IMPLEMENTATION.md** - Full technical details
 - **HYBRID_TESTING_GUIDE.md** - Step-by-step testing
-- **IMPLEMENTATION_SUMMARY.txt** - Complete file listing
+- **../archive/IMPLEMENTATION_SUMMARY.txt** - Complete file listing
 - **QUICK_REFERENCE.md** - This file
 
 ---

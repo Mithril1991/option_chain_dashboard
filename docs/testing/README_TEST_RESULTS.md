@@ -22,12 +22,12 @@ The Option Chain Dashboard is **fully operational** and **production-ready** for
 
 Three comprehensive test reports have been generated:
 
-### 1. **TEST_RESULTS.txt** (Quick Reference)
+### 1. **../archive/TEST_RESULTS.txt** (Quick Reference)
 **Purpose**: One-page overview of test results  
 **Contains**: Summary of all 6 test steps with pass/fail status  
 **Best For**: Quick status check, stakeholder updates
 
-### 2. **E2E_TEST_SUMMARY.txt** (Detailed Summary)
+### 2. **../archive/E2E_TEST_SUMMARY.txt** (Detailed Summary)
 **Purpose**: Comprehensive breakdown by category  
 **Contains**: Detailed findings for each test category  
 **Best For**: Technical review, understanding test coverage
@@ -162,10 +162,10 @@ Three comprehensive test reports have been generated:
 ## How to Read Test Reports
 
 ### For Quick Status Check
-→ Start with **TEST_RESULTS.txt**
+→ Start with **../archive/TEST_RESULTS.txt**
 
 ### For Technical Review
-→ Read **E2E_TEST_SUMMARY.txt**
+→ Read **../archive/E2E_TEST_SUMMARY.txt**
 
 ### For Deep Analysis
 → Consult **E2E_TEST_REPORT.md**

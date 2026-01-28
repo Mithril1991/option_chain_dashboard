@@ -10,6 +10,10 @@ The **Option Chain Dashboard** is a financial analytics platform that combines m
 
 **Status**: Active development
 
+## Documentation Index
+
+All project documentation, reports, and guides are indexed in `docs/index.md`.
+
 ## Architecture Overview
 
 ### Layered Architecture

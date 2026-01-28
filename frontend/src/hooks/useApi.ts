@@ -289,7 +289,6 @@ export const useOptionExpirations = (ticker: string): UseApiState<string[]> & { 
     loading: false,
     error: null
   })
-  const apiClient = require('@utils/apiClient').default
 
   const fetchExpirations = useCallback(async () => {
     if (!ticker) {
