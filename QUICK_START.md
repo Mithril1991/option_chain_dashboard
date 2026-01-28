@@ -133,7 +133,7 @@ Ctrl+C
 
 ## ⚙️ Configuration
 
-Edit `/mnt/shared_ubuntu/Claude/Projects/option_chain_dashboard/inputs/config.yaml`
+Edit `/mnt/shared_ubuntu/Claude/Projects/option_chain_dashboard/config.yaml`
 
 Key settings:
 - `detectors`: Enable/disable detectors
