@@ -54,7 +54,7 @@ const detectorLabels: Record<DetectorType | string, string> = {
 
 export const AlertFeed: React.FC = () => {
   const navigate = useNavigate()
-  const { data: alertsData, loading, error: apiError, refetch } = useLatestAlertsSummary(50)
+  const { data: alertsSummary, loading, error: apiError, refetch } = useLatestAlertsSummary(50)
 
   // Local retry and error state for better control
   const [isRetrying, setIsRetrying] = useState(false)
@@ -62,7 +62,7 @@ export const AlertFeed: React.FC = () => {
   const [displayError, setDisplayError] = useState<Error | null>(null)
 
   // Map to alerts for local use (for backward compatibility with existing render code)
-  const alerts = alertsData || []
+  const alerts = alertsSummary?.alerts || []
 
   // Filter state
   const [filters, setFilters] = useState<FilterState>({
