@@ -59,6 +59,12 @@ export interface AlertSummaryResponse {
   created_at: string
 }
 
+export interface AlertsSummaryResponse {
+  alerts: AlertSummaryResponse[]
+  total_count: number
+  timestamp: string
+}
+
 /**
  * Option contract in a chain snapshot
  */

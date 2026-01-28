@@ -14,19 +14,19 @@ export const Dashboard: React.FC = () => {
 
   // API Integration Hooks
   const { health, loading: healthLoading, error: healthError, refetch: refetchHealth } = useHealthCheckIntegration()
-  const { data: alerts, loading: alertsLoading, error: alertsError, refetch: refetchAlerts } = useLatestAlertsSummary(20)
+  const { data: alertsSummary, loading: alertsLoading, error: alertsError, refetch: refetchAlerts } = useLatestAlertsSummary(20)
   const { triggerScan, loading: scanLoading, error: scanError } = useTriggerScanIntegration()
 
   // Update display alerts when fresh data arrives
   useEffect(() => {
-    if (alerts && alerts.length > 0) {
-      setDisplayAlerts(alerts.slice(0, 10))
+    if (alertsSummary?.alerts && alertsSummary.alerts.length > 0) {
+      setDisplayAlerts(alertsSummary.alerts.slice(0, 10))
     }
-  }, [alerts])
+  }, [alertsSummary])
 
   // Calculate metrics
-  const totalAlertsToday = alerts?.length || 0
-  const highScoreAlerts = alerts?.filter((a) => a.score > 75).length || 0
+  const totalAlertsToday = alertsSummary?.alerts.length || 0
+  const highScoreAlerts = alertsSummary?.alerts.filter((a) => a.score > 75).length || 0
   const systemHealthy = health?.status === 'ok'
   const isApiConnected = !healthError && health?.status === 'ok'
 

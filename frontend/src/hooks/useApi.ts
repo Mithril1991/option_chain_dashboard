@@ -5,6 +5,7 @@ import type {
   ScanResponse,
   AlertResponse,
   AlertSummaryResponse,
+  AlertsSummaryResponse,
   ChainSnapshot,
   FeatureResponse
 } from '@types/api'
@@ -215,9 +216,9 @@ export const useLatestAlerts = (limit: number = 50): UseApiState<AlertResponse[]
  * Fetch latest alert summaries (lightweight - no metrics field)
  * Optimized for dashboard performance - 3-5x faster than full alerts
  */
-export const useLatestAlertsSummary = (limit: number = 20): UseApiState<AlertSummaryResponse[]> & { refetch: () => Promise<void> } => {
+export const useLatestAlertsSummary = (limit: number = 20): UseApiState<AlertsSummaryResponse> & { refetch: () => Promise<void> } => {
   const url = `/alerts/latest/summary?limit=${limit}`
-  return useApi<AlertSummaryResponse[]>(url, { immediate: true })
+  return useApi<AlertsSummaryResponse>(url, { immediate: true })
 }
 
 /**
