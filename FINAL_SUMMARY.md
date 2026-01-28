@@ -247,7 +247,7 @@ http://localhost:8060
 
 ## 🔧 CONFIGURATION
 
-All configurable via `config.yaml`:
+All configurable via `inputs/config.yaml`:
 
 ```yaml
 detectors:
@@ -356,7 +356,7 @@ All tables have proper indexes for fast queries.
 
 ### Short Term (This Week)
 1. Read PROJECT_COMPLETE.md for full overview
-2. Customize config.yaml with your preferences
+2. Customize inputs/config.yaml with your preferences
 3. Review API docs at http://localhost:8061/docs
 4. Export and analyze alerts
 
