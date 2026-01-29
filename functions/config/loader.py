@@ -322,7 +322,7 @@ class ConfigManager:
         Changes when any configuration changes.
         """
         hash_input = {
-            "config": json.dumps(self._config.dict(), sort_keys=True, default=str),
+            "config": json.dumps(self._config.model_dump(), sort_keys=True, default=str),
             "files": sorted(
                 [(k, v) for k, v in self._loaded_files.items()], key=lambda x: x[0]
             ),
