@@ -22,6 +22,11 @@ export interface HealthResponse {
   data_mode?: string  // 'demo' or 'production'
   scan_status?: string  // 'idle', 'running', 'completed', 'error'
   api_calls_today?: number
+  components?: {
+    database: { status: string; latency: number }
+    dataProvider: { status: string; latency: number }
+    analyticsEngine: { status: string; latency: number }
+  }
 }
 
 /**
