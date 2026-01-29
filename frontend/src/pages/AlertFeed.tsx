@@ -131,13 +131,15 @@ export const AlertFeed: React.FC = () => {
     // Score range filter
     filtered = filtered.filter(a => a.score >= filters.scoreRange[0] && a.score <= filters.scoreRange[1])
 
-    // Detector type filter
+    // Detector type filter - case-insensitive matching
     if (filters.selectedDetectors.length > 0) {
-      filtered = filtered.filter(a =>
-        filters.selectedDetectors.some(detector =>
-          a.detector_name === detector || a.detector_name.includes(detector as string)
-        )
-      )
+      filtered = filtered.filter(a => {
+        const alertDetector = a.detector_name.toLowerCase()
+        return filters.selectedDetectors.some(detector => {
+          const filterDetector = (detector as string).toLowerCase()
+          return alertDetector === filterDetector || alertDetector.includes(filterDetector)
+        })
+      })
     }
 
     // Date range filter
