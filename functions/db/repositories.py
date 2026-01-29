@@ -902,7 +902,19 @@ class IVHistoryRepository(BaseRepository):
             hv_60: Historical volatility over 60 days
             iv_percentile: IV percentile relative to historical range
         """
-        pass
+        record_date = iv_date.date() if isinstance(iv_date, datetime) else iv_date
+        # Delete existing record for same ticker/date, then insert new
+        self.db.execute(
+            "DELETE FROM iv_history WHERE ticker = ? AND record_date = ?",
+            [ticker, record_date]
+        )
+        self.db.execute(
+            """INSERT INTO iv_history
+               (id, ticker, record_date, atm_iv_front, atm_iv_back, hv_20, hv_60, iv_percentile)
+               VALUES (nextval('seq_iv_history_id'), ?, ?, ?, ?, ?, ?, ?)""",
+            [ticker, record_date, atm_iv_front, atm_iv_back, hv_20, hv_60, iv_percentile]
+        )
+        logger.debug(f"Saved IV for {ticker} on {record_date}")
 
     def get_iv_history(
         self, ticker: str, days: int = 252
@@ -917,7 +929,25 @@ class IVHistoryRepository(BaseRepository):
         Returns:
             List of IV records sorted by date ascending
         """
-        pass
+        result = self.db.execute(
+            """SELECT ticker, record_date, atm_iv_front, atm_iv_back, hv_20, hv_60, iv_percentile
+               FROM iv_history
+               WHERE ticker = ? AND record_date >= CURRENT_DATE - INTERVAL ? DAY
+               ORDER BY record_date ASC""",
+            [ticker, days]
+        ).fetchall()
+        return [
+            {
+                "ticker": row[0],
+                "record_date": str(row[1]),
+                "atm_iv_front": row[2],
+                "atm_iv_back": row[3],
+                "hv_20": row[4],
+                "hv_60": row[5],
+                "iv_percentile": row[6],
+            }
+            for row in result
+        ]
 
     def get_iv_percentile(
         self, ticker: str, current_iv: float, lookback_days: int = 252
@@ -933,7 +963,19 @@ class IVHistoryRepository(BaseRepository):
         Returns:
             Percentile value (0-100) or None if insufficient data
         """
-        pass
+        result = self.db.execute(
+            """SELECT atm_iv_front FROM iv_history
+               WHERE ticker = ? AND record_date >= CURRENT_DATE - INTERVAL ? DAY
+               ORDER BY atm_iv_front ASC""",
+            [ticker, lookback_days]
+        ).fetchall()
+        if len(result) < 10:  # Need minimum data points
+            return None
+        ivs = [row[0] for row in result if row[0] is not None]
+        if not ivs:
+            return None
+        count_below = sum(1 for iv in ivs if iv < current_iv)
+        return (count_below / len(ivs)) * 100
 
     def get_latest_iv(self, ticker: str) -> Optional[Dict[str, Any]]:
         """
@@ -945,7 +987,25 @@ class IVHistoryRepository(BaseRepository):
         Returns:
             Latest IV record or None if no data exists
         """
-        pass
+        result = self.db.execute(
+            """SELECT ticker, record_date, atm_iv_front, atm_iv_back, hv_20, hv_60, iv_percentile
+               FROM iv_history
+               WHERE ticker = ?
+               ORDER BY record_date DESC
+               LIMIT 1""",
+            [ticker]
+        ).fetchone()
+        if not result:
+            return None
+        return {
+            "ticker": result[0],
+            "record_date": str(result[1]),
+            "atm_iv_front": result[2],
+            "atm_iv_back": result[3],
+            "hv_20": result[4],
+            "hv_60": result[5],
+            "iv_percentile": result[6],
+        }
 
 
 class ChainSnapshotRepository(BaseRepository):
@@ -1005,7 +1065,20 @@ class ChainSnapshotRepository(BaseRepository):
         Returns:
             ID of created chain snapshot
         """
-        pass
+        import json
+        chain_json_str = json.dumps(chain_json) if isinstance(chain_json, dict) else chain_json
+        result = self.db.execute(
+            """INSERT INTO chain_snapshots
+               (id, scan_id, ticker, snapshot_date, expiration, dte, underlying_price,
+                chain_json, num_calls, num_puts, atm_iv, total_volume, total_oi, file_path)
+               VALUES (nextval('seq_chain_snapshots_id'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               RETURNING id""",
+            [scan_id, ticker, snapshot_date, expiration, dte, underlying_price,
+             chain_json_str, num_calls, num_puts, atm_iv, total_volume, total_oi, file_path]
+        ).fetchone()
+        snapshot_id = result[0] if result else 0
+        logger.debug(f"Saved chain snapshot {snapshot_id} for {ticker} exp={expiration}")
+        return snapshot_id
 
     def get_chain_snapshot(
         self, ticker: str, snapshot_date: datetime, expiration: date
@@ -1021,7 +1094,17 @@ class ChainSnapshotRepository(BaseRepository):
         Returns:
             Chain snapshot record or None if not found
         """
-        pass
+        result = self.db.execute(
+            """SELECT id, scan_id, ticker, snapshot_date, expiration, dte, underlying_price,
+                      chain_json, num_calls, num_puts, atm_iv, total_volume, total_oi, file_path
+               FROM chain_snapshots
+               WHERE ticker = ? AND DATE(snapshot_date) = DATE(?) AND expiration = ?
+               LIMIT 1""",
+            [ticker, snapshot_date, expiration]
+        ).fetchone()
+        if not result:
+            return None
+        return self._row_to_dict(result)
 
     def get_latest_chains(
         self, ticker: str, limit: int = 10
@@ -1036,7 +1119,16 @@ class ChainSnapshotRepository(BaseRepository):
         Returns:
             List of recent chain snapshots sorted by date descending
         """
-        pass
+        result = self.db.execute(
+            """SELECT id, scan_id, ticker, snapshot_date, expiration, dte, underlying_price,
+                      chain_json, num_calls, num_puts, atm_iv, total_volume, total_oi, file_path
+               FROM chain_snapshots
+               WHERE ticker = ?
+               ORDER BY snapshot_date DESC
+               LIMIT ?""",
+            [ticker, limit]
+        ).fetchall()
+        return [self._row_to_dict(row) for row in result]
 
     def get_chain_history(
         self, ticker: str, expiration: date
@@ -1051,7 +1143,38 @@ class ChainSnapshotRepository(BaseRepository):
         Returns:
             List of all snapshots for this expiration, sorted by date
         """
-        pass
+        result = self.db.execute(
+            """SELECT id, scan_id, ticker, snapshot_date, expiration, dte, underlying_price,
+                      chain_json, num_calls, num_puts, atm_iv, total_volume, total_oi, file_path
+               FROM chain_snapshots
+               WHERE ticker = ? AND expiration = ?
+               ORDER BY snapshot_date ASC""",
+            [ticker, expiration]
+        ).fetchall()
+        return [self._row_to_dict(row) for row in result]
+
+    def _row_to_dict(self, row) -> Dict[str, Any]:
+        """Convert database row to dictionary."""
+        import json
+        chain_json = row[7]
+        if isinstance(chain_json, str):
+            chain_json = json.loads(chain_json)
+        return {
+            "id": row[0],
+            "scan_id": row[1],
+            "ticker": row[2],
+            "snapshot_date": str(row[3]),
+            "expiration": str(row[4]),
+            "dte": row[5],
+            "underlying_price": row[6],
+            "chain_json": chain_json,
+            "num_calls": row[8],
+            "num_puts": row[9],
+            "atm_iv": row[10],
+            "total_volume": row[11],
+            "total_oi": row[12],
+            "file_path": row[13],
+        }
 
 
 class TransactionRepository(BaseRepository):
@@ -1063,8 +1186,12 @@ class TransactionRepository(BaseRepository):
     """
 
     def __init__(self):
-        """Initialize TransactionRepository."""
-        pass
+        """Initialize TransactionRepository.
+
+        Calls super().__init__() to properly initialize self.db with the
+        DuckDB connection from get_db().
+        """
+        super().__init__()
 
     def add_transaction(
         self,
@@ -1107,7 +1234,20 @@ class TransactionRepository(BaseRepository):
         Returns:
             ID of created transaction
         """
-        pass
+        result = self.db.execute(
+            """INSERT INTO transactions
+               (id, tx_date, account, description, transaction_type, symbol, quantity, price,
+                gross_amount, commission, net_amount, multiplier, sub_type, exchange_rate,
+                transaction_fees, currency)
+               VALUES (nextval('seq_transactions_id'), ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+               RETURNING id""",
+            [date, account, description, transaction_type, symbol, quantity, price,
+             gross_amount, commission, net_amount, multiplier, sub_type, exchange_rate,
+             transaction_fees, currency]
+        ).fetchone()
+        tx_id = result[0] if result else 0
+        logger.debug(f"Added transaction {tx_id}: {transaction_type} {symbol or ''}")
+        return tx_id
 
     def get_transactions(
         self,
@@ -1134,7 +1274,51 @@ class TransactionRepository(BaseRepository):
         Returns:
             List of matching transactions
         """
-        pass
+        query = """SELECT id, tx_date, account, description, transaction_type, symbol,
+                          quantity, price, gross_amount, commission, net_amount,
+                          multiplier, sub_type, exchange_rate, transaction_fees, currency
+                   FROM transactions WHERE 1=1"""
+        params = []
+        if account:
+            query += " AND account = ?"
+            params.append(account)
+        if symbol:
+            query += " AND symbol = ?"
+            params.append(symbol)
+        if transaction_type:
+            query += " AND transaction_type = ?"
+            params.append(transaction_type)
+        if start_date:
+            query += " AND tx_date >= ?"
+            params.append(start_date)
+        if end_date:
+            query += " AND tx_date <= ?"
+            params.append(end_date)
+        query += " ORDER BY tx_date DESC LIMIT ? OFFSET ?"
+        params.extend([limit, offset])
+
+        result = self.db.execute(query, params).fetchall()
+        return [
+            {
+                "id": row[0],
+                "tx_date": str(row[1]),
+                "account": row[2],
+                "description": row[3],
+                "transaction_type": row[4],
+                "symbol": row[5],
+                "quantity": row[6],
+                "price": row[7],
+                "gross_amount": row[8],
+                "commission": row[9],
+                "net_amount": row[10],
+                "multiplier": row[11],
+                "sub_type": row[12],
+                "exchange_rate": row[13],
+                "transaction_fees": row[14],
+                "currency": row[15],
+            }
+            for row in result
+        ]
 
     def get_transaction_summary(
         self, account: str, start_date: datetime, end_date: datetime
@@ -1151,7 +1335,47 @@ class TransactionRepository(BaseRepository):
             Dictionary with total_buys, total_sells, net_proceeds,
             total_commissions, total_fees, by_symbol breakdown, etc.
         """
-        pass
+        result = self.db.execute(
+            """SELECT
+                 SUM(CASE WHEN transaction_type = 'BUY' THEN net_amount ELSE 0 END) as total_buys,
+                 SUM(CASE WHEN transaction_type = 'SELL' THEN net_amount ELSE 0 END) as total_sells,
+                 SUM(net_amount) as net_proceeds,
+                 SUM(commission) as total_commissions,
+                 SUM(transaction_fees) as total_fees,
+                 COUNT(*) as transaction_count
+               FROM transactions
+               WHERE account = ? AND tx_date >= ? AND tx_date <= ?""",
+            [account, start_date, end_date]
+        ).fetchone()
+
+        # Get breakdown by symbol
+        by_symbol = self.db.execute(
+            """SELECT symbol,
+                      SUM(CASE WHEN transaction_type = 'BUY' THEN net_amount ELSE 0 END) as buys,
+                      SUM(CASE WHEN transaction_type = 'SELL' THEN net_amount ELSE 0 END) as sells,
+                      SUM(net_amount) as net
+               FROM transactions
+               WHERE account = ? AND tx_date >= ? AND tx_date <= ? AND symbol IS NOT NULL
+               GROUP BY symbol
+               ORDER BY ABS(SUM(net_amount)) DESC""",
+            [account, start_date, end_date]
+        ).fetchall()
+
+        return {
+            "account": account,
+            "start_date": str(start_date),
+            "end_date": str(end_date),
+            "total_buys": result[0] or 0,
+            "total_sells": result[1] or 0,
+            "net_proceeds": result[2] or 0,
+            "total_commissions": result[3] or 0,
+            "total_fees": result[4] or 0,
+            "transaction_count": result[5] or 0,
+            "by_symbol": [
+                {"symbol": row[0], "buys": row[1], "sells": row[2], "net": row[3]}
+                for row in by_symbol
+            ],
+        }
 
 
 # Singleton Repository Instances
