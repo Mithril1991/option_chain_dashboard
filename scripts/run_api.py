@@ -1706,13 +1706,16 @@ async def get_options_snapshot(
         # Use first matching chain (or nearest if no specific expiration requested)
         chain = chains[0]
 
+        # Get expiration from chain for use in option contracts
+        chain_expiration = chain.get("expiration", "")
+
         # Convert to response format
         calls = [
             OptionContractResponse(
                 strike=c.get("strike", 0),
-                option_type="call",
                 bid=c.get("bid", 0),
                 ask=c.get("ask", 0),
+                lastPrice=c.get("last_price", c.get("lastPrice", (c.get("bid", 0) + c.get("ask", 0)) / 2)),
                 volume=c.get("volume", 0),
                 open_interest=c.get("open_interest", 0),
                 implied_volatility=c.get("implied_volatility", 0),
@@ -1721,6 +1724,7 @@ async def get_options_snapshot(
                 vega=c.get("vega"),
                 theta=c.get("theta"),
                 rho=c.get("rho"),
+                expirationDate=chain_expiration,
             )
             for c in chain.get("calls", [])
         ]
@@ -1728,9 +1732,9 @@ async def get_options_snapshot(
         puts = [
             OptionContractResponse(
                 strike=p.get("strike", 0),
-                option_type="put",
                 bid=p.get("bid", 0),
                 ask=p.get("ask", 0),
+                lastPrice=p.get("last_price", p.get("lastPrice", (p.get("bid", 0) + p.get("ask", 0)) / 2)),
                 volume=p.get("volume", 0),
                 open_interest=p.get("open_interest", 0),
                 implied_volatility=p.get("implied_volatility", 0),
@@ -1739,6 +1743,7 @@ async def get_options_snapshot(
                 vega=p.get("vega"),
                 theta=p.get("theta"),
                 rho=p.get("rho"),
+                expirationDate=chain_expiration,
             )
             for p in chain.get("puts", [])
         ]
@@ -1825,24 +1830,36 @@ async def get_options_history(
                 calls=[
                     OptionContractResponse(
                         strike=c.get("strike", 0),
-                        option_type="call",
                         bid=c.get("bid", 0),
                         ask=c.get("ask", 0),
+                        lastPrice=c.get("last_price", c.get("lastPrice", (c.get("bid", 0) + c.get("ask", 0)) / 2)),
                         volume=c.get("volume", 0),
                         open_interest=c.get("open_interest", 0),
                         implied_volatility=c.get("implied_volatility", 0),
+                        delta=c.get("delta"),
+                        gamma=c.get("gamma"),
+                        vega=c.get("vega"),
+                        theta=c.get("theta"),
+                        rho=c.get("rho"),
+                        expirationDate=chain.get("expiration", ""),
                     )
                     for c in chain.get("calls", [])
                 ],
                 puts=[
                     OptionContractResponse(
                         strike=p.get("strike", 0),
-                        option_type="put",
                         bid=p.get("bid", 0),
                         ask=p.get("ask", 0),
+                        lastPrice=p.get("last_price", p.get("lastPrice", (p.get("bid", 0) + p.get("ask", 0)) / 2)),
                         volume=p.get("volume", 0),
                         open_interest=p.get("open_interest", 0),
                         implied_volatility=p.get("implied_volatility", 0),
+                        delta=p.get("delta"),
+                        gamma=p.get("gamma"),
+                        vega=p.get("vega"),
+                        theta=p.get("theta"),
+                        rho=p.get("rho"),
+                        expirationDate=chain.get("expiration", ""),
                     )
                     for p in chain.get("puts", [])
                 ],
