@@ -1,18 +1,15 @@
 import React, { useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useApi } from '@hooks/useApi'
-import { TickerData, OptionChain } from '@types/api'
+import { ChainSnapshot } from '@types/api'
 
 export const TickerDetail: React.FC = () => {
   const { symbol } = useParams<{ symbol: string }>()
   const navigate = useNavigate()
 
-  const { data: ticker, loading: tickerLoading, error: tickerError } = useApi<TickerData>(
-    symbol ? `/api/tickers/${symbol}` : null
-  )
-
-  const { data: optionChain, loading: chainLoading, error: chainError } = useApi<OptionChain>(
-    symbol ? `/api/options/${symbol}` : null
+  // Fetch options chain - includes underlying price
+  const { data: optionChain, loading: chainLoading, error: chainError } = useApi<ChainSnapshot>(
+    symbol ? `/options/${symbol}/snapshot` : ''
   )
 
   useEffect(() => {
@@ -25,13 +22,13 @@ export const TickerDetail: React.FC = () => {
     return null
   }
 
-  if (tickerError || chainError) {
+  if (chainError) {
     return (
       <div className="p-6">
         <div className="card bg-red-900/20 border-red-700">
           <h2 className="text-lg font-semibold text-red-400">Error Loading Ticker</h2>
           <p className="text-red-300 mt-2">
-            {tickerError || chainError}
+            {chainError instanceof Error ? chainError.message : String(chainError)}
           </p>
           <button
             onClick={() => navigate('/')}
@@ -58,37 +55,27 @@ export const TickerDetail: React.FC = () => {
           Back
         </button>
 
-        {tickerLoading ? (
+        {chainLoading ? (
           <div className="text-gray-400">Loading ticker data...</div>
-        ) : ticker ? (
+        ) : optionChain ? (
           <div>
-            <h1 className="text-4xl font-bold text-white mb-4">{ticker.ticker}</h1>
+            <h1 className="text-4xl font-bold text-white mb-4">{optionChain.ticker}</h1>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="card">
-                <p className="text-gray-400 text-sm">Current Price</p>
-                <p className="text-2xl font-bold text-white mt-2">${ticker.price.toFixed(2)}</p>
+                <p className="text-gray-400 text-sm">Underlying Price</p>
+                <p className="text-2xl font-bold text-white mt-2">${optionChain.underlyingPrice?.toFixed(2) || 'N/A'}</p>
               </div>
               <div className="card">
-                <p className="text-gray-400 text-sm">Change</p>
-                <p className={`text-2xl font-bold mt-2 ${
-                  ticker.change >= 0 ? 'text-green-400' : 'text-red-400'
-                }`}>
-                  {ticker.change >= 0 ? '+' : ''}{ticker.change.toFixed(2)}
-                </p>
+                <p className="text-gray-400 text-sm">Expiration</p>
+                <p className="text-2xl font-bold text-white mt-2">{optionChain.expiration}</p>
               </div>
               <div className="card">
-                <p className="text-gray-400 text-sm">Change %</p>
-                <p className={`text-2xl font-bold mt-2 ${
-                  ticker.changePercent >= 0 ? 'text-green-400' : 'text-red-400'
-                }`}>
-                  {ticker.changePercent >= 0 ? '+' : ''}{ticker.changePercent.toFixed(2)}%
-                </p>
+                <p className="text-gray-400 text-sm">Calls</p>
+                <p className="text-2xl font-bold text-white mt-2">{optionChain.calls?.length || 0}</p>
               </div>
               <div className="card">
-                <p className="text-gray-400 text-sm">Volume</p>
-                <p className="text-2xl font-bold text-white mt-2">
-                  {(ticker.volume / 1000000).toFixed(1)}M
-                </p>
+                <p className="text-gray-400 text-sm">Puts</p>
+                <p className="text-2xl font-bold text-white mt-2">{optionChain.puts?.length || 0}</p>
               </div>
             </div>
           </div>
