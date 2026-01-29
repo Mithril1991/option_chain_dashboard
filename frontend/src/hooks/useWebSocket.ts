@@ -34,8 +34,9 @@ export const useWebSocket = (
           const data = JSON.parse(event.data)
           onMessage?.(data)
         } catch (err) {
-          console.error('Failed to parse WebSocket message:', err)
-          onMessage?.(event.data)
+          // Log error but don't pass raw string to onMessage
+          // Callbacks expect parsed JSON objects, passing raw strings causes crashes
+          console.error('Failed to parse WebSocket message:', err, 'Raw data:', event.data)
         }
       }
 
