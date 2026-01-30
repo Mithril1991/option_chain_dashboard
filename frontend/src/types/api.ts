@@ -183,3 +183,14 @@ export interface ConfigStatus {
   lastSync: string
   issues: string[]
 }
+
+/**
+ * Ticker knowledge base content (thesis, risks, notes)
+ */
+export interface ThesisResponse {
+  ticker: string
+  file_type: 'thesis' | 'risks' | 'notes'
+  content: string
+  last_updated?: string
+  timestamp: string
+}

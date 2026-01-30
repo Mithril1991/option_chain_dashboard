@@ -1,15 +1,27 @@
-import React, { useEffect } from 'react'
+import React, { useEffect, useState } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
 import { useApi } from '@hooks/useApi'
-import { ChainSnapshot } from '@types/api'
+import { ChainSnapshot, ThesisResponse } from '@types/api'
 
 export const TickerDetail: React.FC = () => {
   const { symbol } = useParams<{ symbol: string }>()
   const navigate = useNavigate()
+  const [activeTab, setActiveTab] = useState<'chain' | 'thesis' | 'risks' | 'notes'>('chain')
 
   // Fetch options chain - includes underlying price
   const { data: optionChain, loading: chainLoading, error: chainError } = useApi<ChainSnapshot>(
     symbol ? `/options/${symbol}/snapshot` : ''
+  )
+
+  // Fetch knowledge base data
+  const { data: thesis, loading: thesisLoading } = useApi<ThesisResponse>(
+    symbol ? `/tickers/${symbol}/thesis` : ''
+  )
+  const { data: risks, loading: risksLoading } = useApi<ThesisResponse>(
+    symbol ? `/tickers/${symbol}/risks` : ''
+  )
+  const { data: notes, loading: notesLoading } = useApi<ThesisResponse>(
+    symbol ? `/tickers/${symbol}/notes` : ''
   )
 
   useEffect(() => {
@@ -82,11 +94,61 @@ export const TickerDetail: React.FC = () => {
         ) : null}
       </div>
 
-      {/* Options Chain */}
-      <div>
-        <h2 className="text-2xl font-bold text-white mb-6">Options Chain</h2>
+      {/* Tab Navigation */}
+      <div className="mb-6">
+        <div className="flex gap-2 border-b border-gray-700">
+          <button
+            onClick={() => setActiveTab('chain')}
+            className={`px-4 py-2 font-medium transition ${
+              activeTab === 'chain'
+                ? 'text-blue-400 border-b-2 border-blue-400'
+                : 'text-gray-400 hover:text-gray-300'
+            }`}
+          >
+            Options Chain
+          </button>
+          <button
+            onClick={() => setActiveTab('thesis')}
+            className={`px-4 py-2 font-medium transition flex items-center gap-2 ${
+              activeTab === 'thesis'
+                ? 'text-blue-400 border-b-2 border-blue-400'
+                : 'text-gray-400 hover:text-gray-300'
+            }`}
+          >
+            Investment Thesis
+            {thesis && <span className="w-2 h-2 bg-green-500 rounded-full"></span>}
+          </button>
+          <button
+            onClick={() => setActiveTab('risks')}
+            className={`px-4 py-2 font-medium transition flex items-center gap-2 ${
+              activeTab === 'risks'
+                ? 'text-blue-400 border-b-2 border-blue-400'
+                : 'text-gray-400 hover:text-gray-300'
+            }`}
+          >
+            Risk Factors
+            {risks && <span className="w-2 h-2 bg-yellow-500 rounded-full"></span>}
+          </button>
+          <button
+            onClick={() => setActiveTab('notes')}
+            className={`px-4 py-2 font-medium transition flex items-center gap-2 ${
+              activeTab === 'notes'
+                ? 'text-blue-400 border-b-2 border-blue-400'
+                : 'text-gray-400 hover:text-gray-300'
+            }`}
+          >
+            Notes
+            {notes && <span className="w-2 h-2 bg-blue-500 rounded-full"></span>}
+          </button>
+        </div>
+      </div>
 
-        {chainLoading ? (
+      {/* Options Chain Tab */}
+      {activeTab === 'chain' && (
+        <div>
+          <h2 className="text-2xl font-bold text-white mb-6">Options Chain</h2>
+
+          {chainLoading ? (
           <div className="card">
             <p className="text-gray-400 text-center py-8">Loading options data...</p>
           </div>
@@ -167,7 +229,110 @@ export const TickerDetail: React.FC = () => {
             <p className="text-gray-400 text-center py-8">No options data available</p>
           </div>
         )}
-      </div>
+        </div>
+      )}
+
+      {/* Investment Thesis Tab */}
+      {activeTab === 'thesis' && (
+        <div>
+          <h2 className="text-2xl font-bold text-white mb-6">Investment Thesis</h2>
+          {thesisLoading ? (
+            <div className="card">
+              <p className="text-gray-400 text-center py-8">Loading thesis...</p>
+            </div>
+          ) : thesis ? (
+            <div className="card">
+              <div className="prose prose-invert max-w-none">
+                <pre className="whitespace-pre-wrap text-gray-300 font-sans text-sm leading-relaxed">
+                  {thesis.content}
+                </pre>
+              </div>
+              {thesis.last_updated && (
+                <p className="text-gray-500 text-xs mt-4">
+                  Last updated: {new Date(thesis.last_updated).toLocaleString()}
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="card bg-gray-800/50">
+              <p className="text-gray-400 text-center py-8">
+                No investment thesis available for {symbol}.
+              </p>
+              <p className="text-gray-500 text-center text-sm">
+                Create <code className="bg-gray-700 px-1 rounded">tickers/{symbol}/theses.md</code> to add one.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Risk Factors Tab */}
+      {activeTab === 'risks' && (
+        <div>
+          <h2 className="text-2xl font-bold text-white mb-6">Risk Factors</h2>
+          {risksLoading ? (
+            <div className="card">
+              <p className="text-gray-400 text-center py-8">Loading risks...</p>
+            </div>
+          ) : risks ? (
+            <div className="card border-yellow-700/30">
+              <div className="prose prose-invert max-w-none">
+                <pre className="whitespace-pre-wrap text-gray-300 font-sans text-sm leading-relaxed">
+                  {risks.content}
+                </pre>
+              </div>
+              {risks.last_updated && (
+                <p className="text-gray-500 text-xs mt-4">
+                  Last updated: {new Date(risks.last_updated).toLocaleString()}
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="card bg-gray-800/50">
+              <p className="text-gray-400 text-center py-8">
+                No risk factors documented for {symbol}.
+              </p>
+              <p className="text-gray-500 text-center text-sm">
+                Create <code className="bg-gray-700 px-1 rounded">tickers/{symbol}/risks.md</code> to add them.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
+
+      {/* Notes Tab */}
+      {activeTab === 'notes' && (
+        <div>
+          <h2 className="text-2xl font-bold text-white mb-6">Trading Notes</h2>
+          {notesLoading ? (
+            <div className="card">
+              <p className="text-gray-400 text-center py-8">Loading notes...</p>
+            </div>
+          ) : notes ? (
+            <div className="card">
+              <div className="prose prose-invert max-w-none">
+                <pre className="whitespace-pre-wrap text-gray-300 font-sans text-sm leading-relaxed">
+                  {notes.content}
+                </pre>
+              </div>
+              {notes.last_updated && (
+                <p className="text-gray-500 text-xs mt-4">
+                  Last updated: {new Date(notes.last_updated).toLocaleString()}
+                </p>
+              )}
+            </div>
+          ) : (
+            <div className="card bg-gray-800/50">
+              <p className="text-gray-400 text-center py-8">
+                No trading notes available for {symbol}.
+              </p>
+              <p className="text-gray-500 text-center text-sm">
+                Create <code className="bg-gray-700 px-1 rounded">tickers/{symbol}/notes.md</code> to add them.
+              </p>
+            </div>
+          )}
+        </div>
+      )}
     </div>
   )
 }
