@@ -37,9 +37,9 @@ export const TickerDetail: React.FC = () => {
   if (chainError) {
     return (
       <div className="p-6">
-        <div className="card bg-red-900/20 border-red-700">
-          <h2 className="text-lg font-semibold text-red-400">Error Loading Ticker</h2>
-          <p className="text-red-300 mt-2">
+        <div className="card bg-red-50 border border-red-200">
+          <h2 className="text-lg font-semibold text-red-600">Error Loading Ticker</h2>
+          <p className="text-red-500 mt-2">
             {chainError instanceof Error ? chainError.message : String(chainError)}
           </p>
           <button
@@ -59,7 +59,7 @@ export const TickerDetail: React.FC = () => {
       <div className="mb-8">
         <button
           onClick={() => navigate('/')}
-          className="text-blue-400 hover:text-blue-300 mb-4 flex items-center gap-2"
+          className="text-blue-600 hover:text-blue-500 mb-4 flex items-center gap-2"
         >
           <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 19l-7-7 7-7" />
@@ -68,26 +68,26 @@ export const TickerDetail: React.FC = () => {
         </button>
 
         {chainLoading ? (
-          <div className="text-gray-400">Loading ticker data...</div>
+          <div className="text-gray-600">Loading ticker data...</div>
         ) : optionChain ? (
           <div>
-            <h1 className="text-4xl font-bold text-white mb-4">{optionChain.ticker}</h1>
+            <h1 className="text-4xl font-bold text-gray-900 mb-4">{optionChain.ticker}</h1>
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
               <div className="card">
-                <p className="text-gray-400 text-sm">Underlying Price</p>
-                <p className="text-2xl font-bold text-white mt-2">${optionChain.underlyingPrice?.toFixed(2) || 'N/A'}</p>
+                <p className="text-gray-600 text-sm">Underlying Price</p>
+                <p className="text-2xl font-bold text-gray-900 mt-2">${optionChain.underlyingPrice?.toFixed(2) || 'N/A'}</p>
               </div>
               <div className="card">
-                <p className="text-gray-400 text-sm">Expiration</p>
-                <p className="text-2xl font-bold text-white mt-2">{optionChain.expiration}</p>
+                <p className="text-gray-600 text-sm">Expiration</p>
+                <p className="text-2xl font-bold text-gray-900 mt-2">{optionChain.expiration}</p>
               </div>
               <div className="card">
-                <p className="text-gray-400 text-sm">Calls</p>
-                <p className="text-2xl font-bold text-white mt-2">{optionChain.calls?.length || 0}</p>
+                <p className="text-gray-600 text-sm">Calls</p>
+                <p className="text-2xl font-bold text-gray-900 mt-2">{optionChain.calls?.length || 0}</p>
               </div>
               <div className="card">
-                <p className="text-gray-400 text-sm">Puts</p>
-                <p className="text-2xl font-bold text-white mt-2">{optionChain.puts?.length || 0}</p>
+                <p className="text-gray-600 text-sm">Puts</p>
+                <p className="text-2xl font-bold text-gray-900 mt-2">{optionChain.puts?.length || 0}</p>
               </div>
             </div>
           </div>
@@ -96,13 +96,13 @@ export const TickerDetail: React.FC = () => {
 
       {/* Tab Navigation */}
       <div className="mb-6">
-        <div className="flex gap-2 border-b border-gray-700">
+        <div className="flex gap-2 border-b border-gray-200">
           <button
             onClick={() => setActiveTab('chain')}
             className={`px-4 py-2 font-medium transition ${
               activeTab === 'chain'
-                ? 'text-blue-400 border-b-2 border-blue-400'
-                : 'text-gray-400 hover:text-gray-300'
+                ? 'text-blue-600 border-b-2 border-blue-400'
+                : 'text-gray-600 hover:text-gray-700'
             }`}
           >
             Options Chain
@@ -111,8 +111,8 @@ export const TickerDetail: React.FC = () => {
             onClick={() => setActiveTab('thesis')}
             className={`px-4 py-2 font-medium transition flex items-center gap-2 ${
               activeTab === 'thesis'
-                ? 'text-blue-400 border-b-2 border-blue-400'
-                : 'text-gray-400 hover:text-gray-300'
+                ? 'text-blue-600 border-b-2 border-blue-400'
+                : 'text-gray-600 hover:text-gray-700'
             }`}
           >
             Investment Thesis
@@ -122,8 +122,8 @@ export const TickerDetail: React.FC = () => {
             onClick={() => setActiveTab('risks')}
             className={`px-4 py-2 font-medium transition flex items-center gap-2 ${
               activeTab === 'risks'
-                ? 'text-blue-400 border-b-2 border-blue-400'
-                : 'text-gray-400 hover:text-gray-300'
+                ? 'text-blue-600 border-b-2 border-blue-400'
+                : 'text-gray-600 hover:text-gray-700'
             }`}
           >
             Risk Factors
@@ -133,8 +133,8 @@ export const TickerDetail: React.FC = () => {
             onClick={() => setActiveTab('notes')}
             className={`px-4 py-2 font-medium transition flex items-center gap-2 ${
               activeTab === 'notes'
-                ? 'text-blue-400 border-b-2 border-blue-400'
-                : 'text-gray-400 hover:text-gray-300'
+                ? 'text-blue-600 border-b-2 border-blue-400'
+                : 'text-gray-600 hover:text-gray-700'
             }`}
           >
             Notes
@@ -146,42 +146,42 @@ export const TickerDetail: React.FC = () => {
       {/* Options Chain Tab */}
       {activeTab === 'chain' && (
         <div>
-          <h2 className="text-2xl font-bold text-white mb-6">Options Chain</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">Options Chain</h2>
 
           {chainLoading ? (
           <div className="card">
-            <p className="text-gray-400 text-center py-8">Loading options data...</p>
+            <p className="text-gray-600 text-center py-8">Loading options data...</p>
           </div>
         ) : optionChain ? (
           <div className="space-y-6">
             {/* Calls Table */}
             <div>
-              <h3 className="text-lg font-semibold text-white mb-4">Call Options</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Call Options</h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-gray-700">
-                      <th className="text-left py-3 px-4 text-gray-400 font-medium">Strike</th>
-                      <th className="text-right py-3 px-4 text-gray-400 font-medium">Bid</th>
-                      <th className="text-right py-3 px-4 text-gray-400 font-medium">Ask</th>
-                      <th className="text-right py-3 px-4 text-gray-400 font-medium">IV</th>
-                      <th className="text-right py-3 px-4 text-gray-400 font-medium">Delta</th>
-                      <th className="text-right py-3 px-4 text-gray-400 font-medium">Volume</th>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-3 px-4 text-gray-600 font-medium">Strike</th>
+                      <th className="text-right py-3 px-4 text-gray-600 font-medium">Bid</th>
+                      <th className="text-right py-3 px-4 text-gray-600 font-medium">Ask</th>
+                      <th className="text-right py-3 px-4 text-gray-600 font-medium">IV</th>
+                      <th className="text-right py-3 px-4 text-gray-600 font-medium">Delta</th>
+                      <th className="text-right py-3 px-4 text-gray-600 font-medium">Volume</th>
                     </tr>
                   </thead>
                   <tbody>
                     {optionChain.calls && optionChain.calls.slice(0, 10).map((option, idx) => (
-                      <tr key={idx} className="border-b border-gray-800 hover:bg-gray-800/50 transition">
-                        <td className="py-3 px-4 text-white font-medium">${option.strike.toFixed(2)}</td>
-                        <td className="text-right py-3 px-4 text-gray-300">${option.bid.toFixed(3)}</td>
-                        <td className="text-right py-3 px-4 text-gray-300">${option.ask.toFixed(3)}</td>
-                        <td className="text-right py-3 px-4 text-gray-300">
+                      <tr key={idx} className="border-b border-gray-200 hover:bg-gray-50 transition">
+                        <td className="py-3 px-4 text-gray-900 font-medium">${option.strike.toFixed(2)}</td>
+                        <td className="text-right py-3 px-4 text-gray-700">${option.bid.toFixed(3)}</td>
+                        <td className="text-right py-3 px-4 text-gray-700">${option.ask.toFixed(3)}</td>
+                        <td className="text-right py-3 px-4 text-gray-700">
                           {(option.impliedVolatility * 100).toFixed(1)}%
                         </td>
-                        <td className="text-right py-3 px-4 text-gray-300">
+                        <td className="text-right py-3 px-4 text-gray-700">
                           {option.delta?.toFixed(3) || 'N/A'}
                         </td>
-                        <td className="text-right py-3 px-4 text-gray-300">{option.volume || 0}</td>
+                        <td className="text-right py-3 px-4 text-gray-700">{option.volume || 0}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -191,32 +191,32 @@ export const TickerDetail: React.FC = () => {
 
             {/* Puts Table */}
             <div>
-              <h3 className="text-lg font-semibold text-white mb-4">Put Options</h3>
+              <h3 className="text-lg font-semibold text-gray-900 mb-4">Put Options</h3>
               <div className="overflow-x-auto">
                 <table className="w-full text-sm">
                   <thead>
-                    <tr className="border-b border-gray-700">
-                      <th className="text-left py-3 px-4 text-gray-400 font-medium">Strike</th>
-                      <th className="text-right py-3 px-4 text-gray-400 font-medium">Bid</th>
-                      <th className="text-right py-3 px-4 text-gray-400 font-medium">Ask</th>
-                      <th className="text-right py-3 px-4 text-gray-400 font-medium">IV</th>
-                      <th className="text-right py-3 px-4 text-gray-400 font-medium">Delta</th>
-                      <th className="text-right py-3 px-4 text-gray-400 font-medium">Volume</th>
+                    <tr className="border-b border-gray-200">
+                      <th className="text-left py-3 px-4 text-gray-600 font-medium">Strike</th>
+                      <th className="text-right py-3 px-4 text-gray-600 font-medium">Bid</th>
+                      <th className="text-right py-3 px-4 text-gray-600 font-medium">Ask</th>
+                      <th className="text-right py-3 px-4 text-gray-600 font-medium">IV</th>
+                      <th className="text-right py-3 px-4 text-gray-600 font-medium">Delta</th>
+                      <th className="text-right py-3 px-4 text-gray-600 font-medium">Volume</th>
                     </tr>
                   </thead>
                   <tbody>
                     {optionChain.puts && optionChain.puts.slice(0, 10).map((option, idx) => (
-                      <tr key={idx} className="border-b border-gray-800 hover:bg-gray-800/50 transition">
-                        <td className="py-3 px-4 text-white font-medium">${option.strike.toFixed(2)}</td>
-                        <td className="text-right py-3 px-4 text-gray-300">${option.bid.toFixed(3)}</td>
-                        <td className="text-right py-3 px-4 text-gray-300">${option.ask.toFixed(3)}</td>
-                        <td className="text-right py-3 px-4 text-gray-300">
+                      <tr key={idx} className="border-b border-gray-200 hover:bg-gray-50 transition">
+                        <td className="py-3 px-4 text-gray-900 font-medium">${option.strike.toFixed(2)}</td>
+                        <td className="text-right py-3 px-4 text-gray-700">${option.bid.toFixed(3)}</td>
+                        <td className="text-right py-3 px-4 text-gray-700">${option.ask.toFixed(3)}</td>
+                        <td className="text-right py-3 px-4 text-gray-700">
                           {(option.impliedVolatility * 100).toFixed(1)}%
                         </td>
-                        <td className="text-right py-3 px-4 text-gray-300">
+                        <td className="text-right py-3 px-4 text-gray-700">
                           {option.delta?.toFixed(3) || 'N/A'}
                         </td>
-                        <td className="text-right py-3 px-4 text-gray-300">{option.volume || 0}</td>
+                        <td className="text-right py-3 px-4 text-gray-700">{option.volume || 0}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -226,7 +226,7 @@ export const TickerDetail: React.FC = () => {
           </div>
         ) : (
           <div className="card">
-            <p className="text-gray-400 text-center py-8">No options data available</p>
+            <p className="text-gray-600 text-center py-8">No options data available</p>
           </div>
         )}
         </div>
@@ -235,15 +235,15 @@ export const TickerDetail: React.FC = () => {
       {/* Investment Thesis Tab */}
       {activeTab === 'thesis' && (
         <div>
-          <h2 className="text-2xl font-bold text-white mb-6">Investment Thesis</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">Investment Thesis</h2>
           {thesisLoading ? (
             <div className="card">
-              <p className="text-gray-400 text-center py-8">Loading thesis...</p>
+              <p className="text-gray-600 text-center py-8">Loading thesis...</p>
             </div>
           ) : thesis ? (
             <div className="card">
-              <div className="prose prose-invert max-w-none">
-                <pre className="whitespace-pre-wrap text-gray-300 font-sans text-sm leading-relaxed">
+              <div className="prose prose-gray max-w-none">
+                <pre className="whitespace-pre-wrap text-gray-700 font-sans text-sm leading-relaxed">
                   {thesis.content}
                 </pre>
               </div>
@@ -254,12 +254,12 @@ export const TickerDetail: React.FC = () => {
               )}
             </div>
           ) : (
-            <div className="card bg-gray-800/50">
-              <p className="text-gray-400 text-center py-8">
+            <div className="card bg-gray-100">
+              <p className="text-gray-600 text-center py-8">
                 No investment thesis available for {symbol}.
               </p>
               <p className="text-gray-500 text-center text-sm">
-                Create <code className="bg-gray-700 px-1 rounded">tickers/{symbol}/theses.md</code> to add one.
+                Create <code className="bg-gray-200 px-1 rounded">tickers/{symbol}/theses.md</code> to add one.
               </p>
             </div>
           )}
@@ -269,15 +269,15 @@ export const TickerDetail: React.FC = () => {
       {/* Risk Factors Tab */}
       {activeTab === 'risks' && (
         <div>
-          <h2 className="text-2xl font-bold text-white mb-6">Risk Factors</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">Risk Factors</h2>
           {risksLoading ? (
             <div className="card">
-              <p className="text-gray-400 text-center py-8">Loading risks...</p>
+              <p className="text-gray-600 text-center py-8">Loading risks...</p>
             </div>
           ) : risks ? (
-            <div className="card border-yellow-700/30">
-              <div className="prose prose-invert max-w-none">
-                <pre className="whitespace-pre-wrap text-gray-300 font-sans text-sm leading-relaxed">
+            <div className="card border border-yellow-200">
+              <div className="prose prose-gray max-w-none">
+                <pre className="whitespace-pre-wrap text-gray-700 font-sans text-sm leading-relaxed">
                   {risks.content}
                 </pre>
               </div>
@@ -288,12 +288,12 @@ export const TickerDetail: React.FC = () => {
               )}
             </div>
           ) : (
-            <div className="card bg-gray-800/50">
-              <p className="text-gray-400 text-center py-8">
+            <div className="card bg-gray-100">
+              <p className="text-gray-600 text-center py-8">
                 No risk factors documented for {symbol}.
               </p>
               <p className="text-gray-500 text-center text-sm">
-                Create <code className="bg-gray-700 px-1 rounded">tickers/{symbol}/risks.md</code> to add them.
+                Create <code className="bg-gray-200 px-1 rounded">tickers/{symbol}/risks.md</code> to add them.
               </p>
             </div>
           )}
@@ -303,15 +303,15 @@ export const TickerDetail: React.FC = () => {
       {/* Notes Tab */}
       {activeTab === 'notes' && (
         <div>
-          <h2 className="text-2xl font-bold text-white mb-6">Trading Notes</h2>
+          <h2 className="text-2xl font-bold text-gray-900 mb-6">Trading Notes</h2>
           {notesLoading ? (
             <div className="card">
-              <p className="text-gray-400 text-center py-8">Loading notes...</p>
+              <p className="text-gray-600 text-center py-8">Loading notes...</p>
             </div>
           ) : notes ? (
             <div className="card">
-              <div className="prose prose-invert max-w-none">
-                <pre className="whitespace-pre-wrap text-gray-300 font-sans text-sm leading-relaxed">
+              <div className="prose prose-gray max-w-none">
+                <pre className="whitespace-pre-wrap text-gray-700 font-sans text-sm leading-relaxed">
                   {notes.content}
                 </pre>
               </div>
@@ -322,12 +322,12 @@ export const TickerDetail: React.FC = () => {
               )}
             </div>
           ) : (
-            <div className="card bg-gray-800/50">
-              <p className="text-gray-400 text-center py-8">
+            <div className="card bg-gray-100">
+              <p className="text-gray-600 text-center py-8">
                 No trading notes available for {symbol}.
               </p>
               <p className="text-gray-500 text-center text-sm">
-                Create <code className="bg-gray-700 px-1 rounded">tickers/{symbol}/notes.md</code> to add them.
+                Create <code className="bg-gray-200 px-1 rounded">tickers/{symbol}/notes.md</code> to add them.
               </p>
             </div>
           )}
