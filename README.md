@@ -21,6 +21,10 @@ A comprehensive financial analytics platform for analyzing options chains, compu
 - **Math**: SciPy for options pricing and Greeks calculations
 - **Data Processing**: Pandas, NumPy
 
+## Documentation
+
+All project documentation, reports, and guides are indexed in `docs/index.md`.
+
 ## Installation
 
 ### Prerequisites
@@ -108,6 +112,7 @@ option_chain_dashboard/
 ├── frontend/              # React frontend (separate project)
 ├── tests/                 # Test suite (unit, integration, contracts)
 ├── scripts/               # Utility scripts
+├── docs/                  # Documentation index and guides
 ├── data/                  # Cached option chain data
 ├── historical_data/       # Historical market data
 ├── tickers/               # Stock ticker lists

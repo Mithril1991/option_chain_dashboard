@@ -9,7 +9,7 @@
 
 ## Document Overview
 
-### 1. **README_CONNECTIVITY_FIX.md** ← START HERE
+### 1. **../connectivity/README_CONNECTIVITY_FIX.md** ← START HERE
    - **Purpose**: Main entry point and overview
    - **Content**: 
      - What users are experiencing
@@ -20,7 +20,7 @@
    - **For**: Everyone starting this analysis
    - **Read Time**: 5 minutes
 
-### 2. **CONNECTIVITY_SUMMARY.txt**
+### 2. **../archive/CONNECTIVITY_SUMMARY.txt**
    - **Purpose**: Executive summary and quick reference
    - **Content**:
      - Problem statement
@@ -33,7 +33,7 @@
    - **For**: Decision makers, quick overview
    - **Read Time**: 10 minutes
 
-### 3. **CONNECTIVITY_ANALYSIS.md**
+### 3. **../connectivity/CONNECTIVITY_ANALYSIS.md**
    - **Purpose**: Deep technical analysis
    - **Content**:
      - Issue 1-5 detailed explanations
@@ -46,7 +46,7 @@
    - **For**: Developers needing technical details
    - **Read Time**: 20 minutes
 
-### 4. **CONNECTIVITY_DIAGRAMS.md**
+### 4. **../connectivity/CONNECTIVITY_DIAGRAMS.md**
    - **Purpose**: Visual representation of issues
    - **Content**:
      - Network architecture diagrams
@@ -60,7 +60,7 @@
    - **For**: Visual learners, architects
    - **Read Time**: 15 minutes
 
-### 5. **CONNECTIVITY_FIX_CHECKLIST.md**
+### 5. **../connectivity/CONNECTIVITY_FIX_CHECKLIST.md**
    - **Purpose**: Step-by-step implementation guide
    - **Content**:
      - Phase 1: Emergency (API startup)
@@ -74,7 +74,7 @@
    - **For**: Developers implementing fixes
      - **Read Time**: 30 minutes
 
-### 6. **docs/project/FILES_TO_MODIFY.md**
+### 6. **../project/FILES_TO_MODIFY.md**
    - **Purpose**: Quick reference for code changes
    - **Content**:
      - Exact file paths
@@ -86,7 +86,7 @@
    - **For**: Developers writing code
    - **Read Time**: 15 minutes
 
-### 7. **CONNECTIVITY_SUMMARY.txt** (This file)
+### 7. **../archive/CONNECTIVITY_SUMMARY.txt** (This file)
    - **Purpose**: Navigation and quick reference
    - **Content**: You are here
 
@@ -95,29 +95,29 @@
 ## How to Use This Documentation
 
 ### "What's the problem?"
-1. Read: **README_CONNECTIVITY_FIX.md** (5 min)
-2. Skim: **CONNECTIVITY_SUMMARY.txt** (5 min)
+1. Read: **../connectivity/README_CONNECTIVITY_FIX.md** (5 min)
+2. Skim: **../archive/CONNECTIVITY_SUMMARY.txt** (5 min)
 3. **Done**: You understand the issue
 
 ### "Why is it broken?"
-1. Read: **CONNECTIVITY_ANALYSIS.md** (20 min)
-2. Review: **CONNECTIVITY_DIAGRAMS.md** (10 min)
+1. Read: **../connectivity/CONNECTIVITY_ANALYSIS.md** (20 min)
+2. Review: **../connectivity/CONNECTIVITY_DIAGRAMS.md** (10 min)
 3. **Done**: You understand root causes
 
 ### "How do I fix it?"
-1. Read: **CONNECTIVITY_FIX_CHECKLIST.md** (30 min)
-2. Reference: **docs/project/FILES_TO_MODIFY.md** (as needed)
+1. Read: **../connectivity/CONNECTIVITY_FIX_CHECKLIST.md** (30 min)
+2. Reference: **../project/FILES_TO_MODIFY.md** (as needed)
 3. Implement: Follow step-by-step instructions
 4. **Done**: Dashboard works
 
 ### "I want the quick fix"
-1. Read: **README_CONNECTIVITY_FIX.md** "Quick Start" section (3 min)
+1. Read: **../connectivity/README_CONNECTIVITY_FIX.md** "Quick Start" section (3 min)
 2. Follow: 5 steps in order
 3. Test: Verify dashboard works
 4. **Done**: 15-minute solution
 
 ### "Show me visually"
-1. Review: **CONNECTIVITY_DIAGRAMS.md** (15 min)
+1. Review: **../connectivity/CONNECTIVITY_DIAGRAMS.md** (15 min)
 2. Reference as needed during implementation
 3. **Done**: Visual understanding
 
@@ -229,15 +229,15 @@ After implementation:
 ## Document Relationships
 
 ```
-README_CONNECTIVITY_FIX.md (START HERE)
+../connectivity/README_CONNECTIVITY_FIX.md (START HERE)
     │
-    ├─→ CONNECTIVITY_SUMMARY.txt (Quick overview)
+    ├─→ ../archive/CONNECTIVITY_SUMMARY.txt (Quick overview)
     │
-    ├─→ CONNECTIVITY_ANALYSIS.md (Technical details)
-    │   └─→ CONNECTIVITY_DIAGRAMS.md (Visual reference)
+    ├─→ ../connectivity/CONNECTIVITY_ANALYSIS.md (Technical details)
+    │   └─→ ../connectivity/CONNECTIVITY_DIAGRAMS.md (Visual reference)
     │
-    ├─→ CONNECTIVITY_FIX_CHECKLIST.md (Implementation)
-    │   └─→ docs/project/FILES_TO_MODIFY.md (Code reference)
+    ├─→ ../connectivity/CONNECTIVITY_FIX_CHECKLIST.md (Implementation)
+    │   └─→ ../project/FILES_TO_MODIFY.md (Code reference)
     │
     └─→ This document (Navigation)
 ```
@@ -256,16 +256,16 @@ A: Yes, but minimal. Mostly configuration changes (2-3 files, ~30 lines total)
 A: No, all changes are additions/modifications, no deletions. Rollback is easy.
 
 **Q: What if it goes wrong?**
-A: See CONNECTIVITY_FIX_CHECKLIST.md "Rollback Plan" section
+A: See ../connectivity/CONNECTIVITY_FIX_CHECKLIST.md "Rollback Plan" section
 
 **Q: Can I just do the minimum fix?**
 A: Yes! 15 minutes gets you 95% working. Full fix takes 2.5 hours for remaining 5%
 
 **Q: Which document should I read?**
-A: Start with README_CONNECTIVITY_FIX.md, pick a path based on your role
+A: Start with ../connectivity/README_CONNECTIVITY_FIX.md, pick a path based on your role
 
 **Q: Can I implement without reading everything?**
-A: Yes! Just read docs/project/FILES_TO_MODIFY.md and CONNECTIVITY_FIX_CHECKLIST.md
+A: Yes! Just read ../project/FILES_TO_MODIFY.md and ../connectivity/CONNECTIVITY_FIX_CHECKLIST.md
 
 ---
 
@@ -315,7 +315,7 @@ Do Path B + add configuration features:
 
 ## Next Steps
 
-1. **Right Now**: Read README_CONNECTIVITY_FIX.md (5 min)
+1. **Right Now**: Read ../connectivity/README_CONNECTIVITY_FIX.md (5 min)
 2. **Today**: Implement minimum fix (15 min)
 3. **Today**: Implement recommended fix (60 min)
 4. **Later**: Implement complete fix with config toggle (90 min)
@@ -326,12 +326,12 @@ Do Path B + add configuration features:
 
 | Document | Size | Read Time | Code Examples |
 |----------|------|-----------|---|
-| README_CONNECTIVITY_FIX.md | ~5 KB | 5 min | Yes |
-| CONNECTIVITY_SUMMARY.txt | ~4 KB | 10 min | Yes |
-| CONNECTIVITY_ANALYSIS.md | ~20 KB | 20 min | No |
-| CONNECTIVITY_DIAGRAMS.md | ~15 KB | 15 min | Yes (diagrams) |
-| CONNECTIVITY_FIX_CHECKLIST.md | ~25 KB | 30 min | Yes (detailed) |
-| docs/project/FILES_TO_MODIFY.md | ~12 KB | 15 min | Yes (exact) |
+| ../connectivity/README_CONNECTIVITY_FIX.md | ~5 KB | 5 min | Yes |
+| ../archive/CONNECTIVITY_SUMMARY.txt | ~4 KB | 10 min | Yes |
+| ../connectivity/CONNECTIVITY_ANALYSIS.md | ~20 KB | 20 min | No |
+| ../connectivity/CONNECTIVITY_DIAGRAMS.md | ~15 KB | 15 min | Yes (diagrams) |
+| ../connectivity/CONNECTIVITY_FIX_CHECKLIST.md | ~25 KB | 30 min | Yes (detailed) |
+| ../project/FILES_TO_MODIFY.md | ~12 KB | 15 min | Yes (exact) |
 | ANALYSIS_INDEX.md | ~8 KB | 5 min | No |
 
 **Total**: ~89 KB, ~100 minutes to read everything
@@ -341,18 +341,18 @@ Do Path B + add configuration features:
 **Analysis Complete**  
 **Status**: Ready to implement  
 **Priority**: CRITICAL  
-**Start**: README_CONNECTIVITY_FIX.md  
+**Start**: ../connectivity/README_CONNECTIVITY_FIX.md  
 
 ---
 
 ## Document Index Quick Links
 
-- [README_CONNECTIVITY_FIX.md](./README_CONNECTIVITY_FIX.md) - Start here
-- [CONNECTIVITY_SUMMARY.txt](./CONNECTIVITY_SUMMARY.txt) - Quick overview
-- [CONNECTIVITY_ANALYSIS.md](./CONNECTIVITY_ANALYSIS.md) - Technical deep dive
-- [CONNECTIVITY_DIAGRAMS.md](./CONNECTIVITY_DIAGRAMS.md) - Visual reference
-- [CONNECTIVITY_FIX_CHECKLIST.md](./CONNECTIVITY_FIX_CHECKLIST.md) - Implementation guide
-- [docs/project/FILES_TO_MODIFY.md](./docs/project/FILES_TO_MODIFY.md) - Code reference
+- [../connectivity/README_CONNECTIVITY_FIX.md](./../connectivity/README_CONNECTIVITY_FIX.md) - Start here
+- [../archive/CONNECTIVITY_SUMMARY.txt](../archive/CONNECTIVITY_SUMMARY.txt) - Quick overview
+- [../connectivity/CONNECTIVITY_ANALYSIS.md](./../connectivity/CONNECTIVITY_ANALYSIS.md) - Technical deep dive
+- [../connectivity/CONNECTIVITY_DIAGRAMS.md](./../connectivity/CONNECTIVITY_DIAGRAMS.md) - Visual reference
+- [../connectivity/CONNECTIVITY_FIX_CHECKLIST.md](./../connectivity/CONNECTIVITY_FIX_CHECKLIST.md) - Implementation guide
+- [../project/FILES_TO_MODIFY.md](./../project/FILES_TO_MODIFY.md) - Code reference
 - [ANALYSIS_INDEX.md](./ANALYSIS_INDEX.md) - This document
 
 ---

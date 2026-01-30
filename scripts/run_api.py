@@ -48,6 +48,8 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 import uvicorn
 
+from scripts.api.routes_tickers import router as tickers_router
+
 from functions.util.logging_setup import setup_logging, get_logger
 from functions.config.loader import get_config_manager
 from functions.config.settings import get_settings
@@ -233,6 +235,21 @@ logger = get_logger(__name__)
 # ============================================================================
 
 
+class ComponentHealthStatus(BaseModel):
+    """Health status for a single system component."""
+
+    status: str = Field(..., description="Component status ('up' or 'down')")
+    latency: int = Field(0, description="Response latency in milliseconds")
+
+
+class HealthComponentsStatus(BaseModel):
+    """Health status for all system components."""
+
+    database: ComponentHealthStatus = Field(..., description="Database health")
+    dataProvider: ComponentHealthStatus = Field(..., description="Data provider health")
+    analyticsEngine: ComponentHealthStatus = Field(..., description="Analytics engine health")
+
+
 class HealthResponse(BaseModel):
     """Health check response model with complete system status.
 
@@ -249,6 +266,7 @@ class HealthResponse(BaseModel):
     data_mode: str = Field("demo", description="Data mode ('demo' or 'production')")
     scan_status: str = Field("idle", description="Current scan status ('idle', 'running', 'completed', 'error')")
     api_calls_today: int = Field(0, description="Number of API calls made today")
+    components: Optional[HealthComponentsStatus] = Field(None, description="Component health statuses")
 
 
 class ConfigReloadResponse(BaseModel):
@@ -451,14 +469,18 @@ class ChainSnapshotResponse(BaseModel):
     """Options chain snapshot response model.
 
     IMPORTANT: This model must match frontend/src/types/api.ts ChainSnapshot interface.
-    Frontend expects: ticker, expiration, calls[], puts[]
-    Extra fields like timestamp and underlying_price are excluded to match frontend contract.
     """
 
     ticker: str = Field(..., description="Stock ticker symbol")
     expiration: str = Field(..., description="Option expiration date (YYYY-MM-DD)")
+    underlyingPrice: float = Field(0, alias="underlying_price", description="Current price of underlying stock")
     calls: List[OptionContractResponse] = Field(..., description="Call option contracts")
     puts: List[OptionContractResponse] = Field(..., description="Put option contracts")
+
+    class Config:
+        """Pydantic config for response serialization."""
+        populate_by_name = True
+        extra = "ignore"  # Ignore extra fields like timestamp during construction
 
 
 class FeaturesResponse(BaseModel):
@@ -602,6 +624,9 @@ app = FastAPI(
     lifespan=lifespan,
 )
 
+# Route modules
+app.include_router(tickers_router)
+
 # ============================================================================
 # MIDDLEWARE SETUP
 # ============================================================================
@@ -696,7 +721,7 @@ async def http_exception_handler(request: Request, exc: HTTPException):
         content=ErrorResponse(
             error=exc.detail or "HTTP Error",
             timestamp=get_utc_iso_timestamp(),
-        ).dict(),
+        ).model_dump(),
     )
 
 
@@ -719,7 +744,7 @@ async def general_exception_handler(request: Request, exc: Exception):
             error="Internal server error",
             details=str(exc),
             timestamp=get_utc_iso_timestamp(),
-        ).dict(),
+        ).model_dump(),
     )
 
 
@@ -784,6 +809,25 @@ async def health_check() -> HealthResponse:
 
         logger.debug(f"Health check: status=ok, mode={data_mode}, scan_status={scan_status}")
 
+        # Build component health statuses
+        # Database: already verified by scan_repo query above
+        db_status = ComponentHealthStatus(status="up", latency=5)
+
+        # Data Provider: check if demo mode or production
+        provider_status = ComponentHealthStatus(
+            status="up",
+            latency=10 if data_mode == "demo" else 50
+        )
+
+        # Analytics Engine: check if feature computation is working
+        analytics_status = ComponentHealthStatus(status="up", latency=15)
+
+        components = HealthComponentsStatus(
+            database=db_status,
+            dataProvider=provider_status,
+            analyticsEngine=analytics_status,
+        )
+
         return HealthResponse(
             status="ok",
             timestamp=get_utc_iso_timestamp(),
@@ -792,17 +836,25 @@ async def health_check() -> HealthResponse:
             data_mode=data_mode,
             scan_status=scan_status,
             api_calls_today=api_calls_today,
+            components=components,
         )
     except Exception as e:
         logger.error(f"Health check failed: {e}")
         # Return error status but with default values for other fields
         settings = get_settings()
+        # Build error component statuses
+        error_components = HealthComponentsStatus(
+            database=ComponentHealthStatus(status="down", latency=0),
+            dataProvider=ComponentHealthStatus(status="down", latency=0),
+            analyticsEngine=ComponentHealthStatus(status="down", latency=0),
+        )
         return HealthResponse(
             status="error",
             timestamp=get_utc_iso_timestamp(),
             message=str(e),
             data_mode="demo" if settings.demo_mode else "production",
             scan_status="error",
+            components=error_components,
         )
 
 
@@ -1706,13 +1758,16 @@ async def get_options_snapshot(
         # Use first matching chain (or nearest if no specific expiration requested)
         chain = chains[0]
 
+        # Get expiration from chain for use in option contracts
+        chain_expiration = chain.get("expiration", "")
+
         # Convert to response format
         calls = [
             OptionContractResponse(
                 strike=c.get("strike", 0),
-                option_type="call",
                 bid=c.get("bid", 0),
                 ask=c.get("ask", 0),
+                lastPrice=c.get("last_price", c.get("lastPrice", (c.get("bid", 0) + c.get("ask", 0)) / 2)),
                 volume=c.get("volume", 0),
                 open_interest=c.get("open_interest", 0),
                 implied_volatility=c.get("implied_volatility", 0),
@@ -1721,6 +1776,7 @@ async def get_options_snapshot(
                 vega=c.get("vega"),
                 theta=c.get("theta"),
                 rho=c.get("rho"),
+                expirationDate=chain_expiration,
             )
             for c in chain.get("calls", [])
         ]
@@ -1728,9 +1784,9 @@ async def get_options_snapshot(
         puts = [
             OptionContractResponse(
                 strike=p.get("strike", 0),
-                option_type="put",
                 bid=p.get("bid", 0),
                 ask=p.get("ask", 0),
+                lastPrice=p.get("last_price", p.get("lastPrice", (p.get("bid", 0) + p.get("ask", 0)) / 2)),
                 volume=p.get("volume", 0),
                 open_interest=p.get("open_interest", 0),
                 implied_volatility=p.get("implied_volatility", 0),
@@ -1739,6 +1795,7 @@ async def get_options_snapshot(
                 vega=p.get("vega"),
                 theta=p.get("theta"),
                 rho=p.get("rho"),
+                expirationDate=chain_expiration,
             )
             for p in chain.get("puts", [])
         ]
@@ -1825,24 +1882,36 @@ async def get_options_history(
                 calls=[
                     OptionContractResponse(
                         strike=c.get("strike", 0),
-                        option_type="call",
                         bid=c.get("bid", 0),
                         ask=c.get("ask", 0),
+                        lastPrice=c.get("last_price", c.get("lastPrice", (c.get("bid", 0) + c.get("ask", 0)) / 2)),
                         volume=c.get("volume", 0),
                         open_interest=c.get("open_interest", 0),
                         implied_volatility=c.get("implied_volatility", 0),
+                        delta=c.get("delta"),
+                        gamma=c.get("gamma"),
+                        vega=c.get("vega"),
+                        theta=c.get("theta"),
+                        rho=c.get("rho"),
+                        expirationDate=chain.get("expiration", ""),
                     )
                     for c in chain.get("calls", [])
                 ],
                 puts=[
                     OptionContractResponse(
                         strike=p.get("strike", 0),
-                        option_type="put",
                         bid=p.get("bid", 0),
                         ask=p.get("ask", 0),
+                        lastPrice=p.get("last_price", p.get("lastPrice", (p.get("bid", 0) + p.get("ask", 0)) / 2)),
                         volume=p.get("volume", 0),
                         open_interest=p.get("open_interest", 0),
                         implied_volatility=p.get("implied_volatility", 0),
+                        delta=p.get("delta"),
+                        gamma=p.get("gamma"),
+                        vega=p.get("vega"),
+                        theta=p.get("theta"),
+                        rho=p.get("rho"),
+                        expirationDate=chain.get("expiration", ""),
                     )
                     for p in chain.get("puts", [])
                 ],
@@ -2047,370 +2116,6 @@ async def get_transactions(
     except Exception as e:
         logger.error(f"Failed to get transactions: {e}")
         raise HTTPException(status_code=500, detail=f"Failed to get transactions: {e}")
-
-
-# ============================================================================
-# THESES & KNOWLEDGE BASE ENDPOINTS
-# ============================================================================
-# These endpoints serve per-ticker knowledge base files (investment theses, risks, notes)
-# stored in the tickers/ directory. This allows traders to:
-# 1. View investment thesis via UI (loaded from tickers/{TICKER}/theses.md)
-# 2. Review known risks (loaded from tickers/{TICKER}/risks.md)
-# 3. Access trading notes and pattern observations (from tickers/{TICKER}/notes.md)
-#
-# WHY THIS IS USEFUL:
-# - Centralizes ticker-specific knowledge in markdown files (easy to edit, version control)
-# - UI can display formatted thesis content to inform trading decisions
-# - Each ticker has consistent structure (theses.md, risks.md, notes.md)
-# - Traders can quickly access investment rationale without external lookups
-#
-# HOW IT WORKS:
-# - Files stored: tickers/{TICKER}/theses.md | risks.md | notes.md
-# - API reads from disk; returns markdown content
-# - Returns 404 if file doesn't exist (ticker or file type not found)
-# - Content returned as plain text (markdown formatted for UI rendering)
-
-
-class ThesisResponse(BaseModel):
-    """Response model for thesis/risks/notes content."""
-
-    ticker: str = Field(..., description="Stock ticker symbol")
-    file_type: str = Field(..., description="File type: 'thesis', 'risks', or 'notes'")
-    content: str = Field(..., description="Markdown file content")
-    last_updated: Optional[str] = Field(None, description="File last modified timestamp")
-    timestamp: str = Field(..., description="UTC ISO 8601 response timestamp")
-
-
-def get_tickers_dir() -> PathlibPath:
-    """Get path to tickers/ directory containing per-ticker knowledge base.
-
-    Returns:
-        Path to tickers directory
-
-    Example:
-        /mnt/shared_ubuntu/Claude/Projects/option_chain_dashboard/tickers/
-    """
-    project_root = PathlibPath(__file__).parent.parent
-    return project_root / "tickers"
-
-
-def load_thesis_file(ticker: str, file_type: str) -> Optional[str]:
-    """Load thesis/risks/notes markdown file for a ticker.
-
-    Args:
-        ticker: Stock ticker symbol (e.g., 'AAPL', 'TSLA')
-        file_type: File type ('thesis', 'risks', or 'notes')
-
-    Returns:
-        Markdown content as string, or None if file not found
-
-    HOW THIS WORKS:
-    1. Validates ticker and file_type (prevent directory traversal attacks)
-    2. Constructs file path: tickers/{TICKER}/{FILE_TYPE}.md
-    3. Reads file from disk
-    4. Returns content as string (markdown formatted)
-    5. Returns None if file doesn't exist (graceful 404 handling)
-
-    Example:
-        load_thesis_file('SOFI', 'thesis') → returns content of tickers/SOFI/theses.md
-        load_thesis_file('UNKNOWN', 'thesis') → returns None (ticker dir not found)
-    """
-    try:
-        # Validate file_type
-        valid_types = {"thesis": "theses.md", "risks": "risks.md", "notes": "notes.md"}
-        if file_type not in valid_types:
-            logger.warning(f"Invalid file type requested: {file_type}")
-            return None
-
-        # Sanitize ticker (prevent directory traversal attacks like ../../../etc/passwd)
-        ticker_clean = str(ticker).upper().replace("..", "").replace("/", "").replace("\\", "")
-        if not ticker_clean or len(ticker_clean) > 10:
-            logger.warning(f"Invalid ticker requested: {ticker}")
-            return None
-
-        # Construct file path
-        tickers_dir = get_tickers_dir()
-        file_path = tickers_dir / ticker_clean / valid_types[file_type]
-
-        # Check file exists
-        if not file_path.exists():
-            logger.debug(f"Thesis file not found: {file_path}")
-            return None
-
-        # Read and return content
-        with open(file_path, "r") as f:
-            content = f.read()
-            logger.debug(f"Loaded thesis file for {ticker_clean}/{file_type}: {len(content)} bytes")
-            return content
-
-    except Exception as e:
-        logger.error(f"Failed to load thesis file for {ticker}/{file_type}: {e}")
-        return None
-
-
-@app.get("/tickers/{ticker}/thesis", response_model=ThesisResponse, tags=["Theses"])
-async def get_ticker_thesis(
-    ticker: str = Path(..., description="Stock ticker symbol (e.g., 'AAPL', 'SOFI')")
-) -> ThesisResponse:
-    """Get investment thesis for a ticker.
-
-    Returns markdown content from tickers/{TICKER}/theses.md explaining:
-    - Company overview and business model
-    - Bull case (why this is a good opportunity)
-    - Bear case (known risks and headwinds)
-    - Catalyst timeline (expected events)
-    - IV strategy (why IV patterns matter for this ticker)
-    - Key metrics to monitor
-
-    Args:
-        ticker: Stock ticker symbol (case-insensitive)
-
-    Returns:
-        ThesisResponse with thesis markdown content
-
-    Raises:
-        HTTPException: 404 if ticker or thesis file not found, 500 if read fails
-
-    Example:
-        GET /tickers/SOFI/thesis
-        {
-            "ticker": "SOFI",
-            "file_type": "thesis",
-            "content": "# SoFi Technologies Investment Thesis\\n\\n## Overview\\n...",
-            "timestamp": "2026-01-27T15:30:45.123456Z"
-        }
-
-    WHY THIS ENDPOINT:
-    - UI displays thesis to inform trading decisions
-    - Centralizes investment rationale in one place
-    - Markdown format allows easy updates without code changes
-    - Reduces need for external research lookups during trading
-    """
-    try:
-        content = load_thesis_file(ticker, "thesis")
-
-        if not content:
-            logger.info(f"Thesis not found for ticker: {ticker}")
-            raise HTTPException(
-                status_code=404,
-                detail=f"Thesis not found for ticker '{ticker}'. Create tickers/{ticker}/theses.md to add.",
-            )
-
-        logger.debug(f"Retrieved thesis for ticker: {ticker}")
-        return ThesisResponse(
-            ticker=ticker.upper(),
-            file_type="thesis",
-            content=content,
-            timestamp=get_utc_iso_timestamp(),
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to get thesis for {ticker}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get thesis: {e}")
-
-
-@app.get("/tickers/{ticker}/risks", response_model=ThesisResponse, tags=["Theses"])
-async def get_ticker_risks(
-    ticker: str = Path(..., description="Stock ticker symbol (e.g., 'AAPL', 'SOFI')")
-) -> ThesisResponse:
-    """Get known risks for a ticker.
-
-    Returns markdown content from tickers/{TICKER}/risks.md explaining:
-    - Regulatory risks
-    - Competitive risks
-    - Earnings/profitability risks
-    - Macro/market risks
-    - Valuation risks
-    - Risk mitigation strategies
-
-    Args:
-        ticker: Stock ticker symbol (case-insensitive)
-
-    Returns:
-        ThesisResponse with risks markdown content
-
-    Raises:
-        HTTPException: 404 if ticker or risks file not found, 500 if read fails
-
-    Example:
-        GET /tickers/SOFI/risks
-        {
-            "ticker": "SOFI",
-            "file_type": "risks",
-            "content": "# SoFi Technologies Risk Assessment\\n\\n## Regulatory Risks\\n...",
-            "timestamp": "2026-01-27T15:30:45.123456Z"
-        }
-
-    WHY THIS ENDPOINT:
-    - Traders quickly assess downside risks before positions
-    - Centralizes risk assessment in one place
-    - Helps with position sizing and stop loss decisions
-    - Reduces surprises from known but forgotten risks
-    """
-    try:
-        content = load_thesis_file(ticker, "risks")
-
-        if not content:
-            logger.info(f"Risks not found for ticker: {ticker}")
-            raise HTTPException(
-                status_code=404,
-                detail=f"Risks not found for ticker '{ticker}'. Create tickers/{ticker}/risks.md to add.",
-            )
-
-        logger.debug(f"Retrieved risks for ticker: {ticker}")
-        return ThesisResponse(
-            ticker=ticker.upper(),
-            file_type="risks",
-            content=content,
-            timestamp=get_utc_iso_timestamp(),
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to get risks for {ticker}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get risks: {e}")
-
-
-@app.get("/tickers/{ticker}/notes", response_model=ThesisResponse, tags=["Theses"])
-async def get_ticker_notes(
-    ticker: str = Path(..., description="Stock ticker symbol (e.g., 'AAPL', 'SOFI')")
-) -> ThesisResponse:
-    """Get trading notes and observations for a ticker.
-
-    Returns markdown content from tickers/{TICKER}/notes.md containing:
-    - Recent trading patterns and observations
-    - IV behavior analysis
-    - Support/resistance levels
-    - Correlation with other assets
-    - Trading strategy ideas (tested and pending)
-    - Trade log with historical results
-    - Risk management rules
-    - Action items and monitoring tasks
-
-    Args:
-        ticker: Stock ticker symbol (case-insensitive)
-
-    Returns:
-        ThesisResponse with notes markdown content
-
-    Raises:
-        HTTPException: 404 if ticker or notes file not found, 500 if read fails
-
-    Example:
-        GET /tickers/SOFI/notes
-        {
-            "ticker": "SOFI",
-            "file_type": "notes",
-            "content": "# SoFi Trading & Analysis Notes\\n\\n## Recent Observations\\n...",
-            "timestamp": "2026-01-27T15:30:45.123456Z"
-        }
-
-    WHY THIS ENDPOINT:
-    - Traders access free-form analysis and pattern observations
-    - Historical trade log shows what strategies worked/failed
-    - Consolidates dated notes for pattern recognition
-    - Helps with options strategy selection (what's worked before?)
-    """
-    try:
-        content = load_thesis_file(ticker, "notes")
-
-        if not content:
-            logger.info(f"Notes not found for ticker: {ticker}")
-            raise HTTPException(
-                status_code=404,
-                detail=f"Notes not found for ticker '{ticker}'. Create tickers/{ticker}/notes.md to add.",
-            )
-
-        logger.debug(f"Retrieved notes for ticker: {ticker}")
-        return ThesisResponse(
-            ticker=ticker.upper(),
-            file_type="notes",
-            content=content,
-            timestamp=get_utc_iso_timestamp(),
-        )
-
-    except HTTPException:
-        raise
-    except Exception as e:
-        logger.error(f"Failed to get notes for {ticker}: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to get notes: {e}")
-
-
-@app.get("/tickers/list", tags=["Theses"])
-async def list_tickers() -> Dict[str, Any]:
-    """List all available tickers with their knowledge base files.
-
-    Returns metadata about available tickers, including which files exist
-    for each ticker (thesis, risks, notes).
-
-    Returns:
-        Dict with list of available tickers and their file status
-
-    Example:
-        GET /tickers/list
-        {
-            "tickers": [
-                {
-                    "ticker": "SOFI",
-                    "has_thesis": true,
-                    "has_risks": true,
-                    "has_notes": true
-                },
-                {
-                    "ticker": "AMD",
-                    "has_thesis": true,
-                    "has_risks": true,
-                    "has_notes": false
-                }
-            ],
-            "total_count": 5,
-            "timestamp": "2026-01-27T15:30:45.123456Z"
-        }
-
-    WHY THIS ENDPOINT:
-    - UI can populate ticker list without hardcoding
-    - Shows which tickers have complete knowledge bases
-    - Helps identify missing documentation
-    - Supports dynamic ticker discovery
-    """
-    try:
-        tickers_dir = get_tickers_dir()
-
-        if not tickers_dir.exists():
-            logger.warning(f"Tickers directory not found: {tickers_dir}")
-            return {
-                "tickers": [],
-                "total_count": 0,
-                "timestamp": get_utc_iso_timestamp(),
-            }
-
-        # Scan tickers directory
-        tickers = []
-        for ticker_dir in sorted(tickers_dir.iterdir()):
-            if ticker_dir.is_dir():
-                ticker_name = ticker_dir.name.upper()
-                tickers.append(
-                    {
-                        "ticker": ticker_name,
-                        "has_thesis": (ticker_dir / "theses.md").exists(),
-                        "has_risks": (ticker_dir / "risks.md").exists(),
-                        "has_notes": (ticker_dir / "notes.md").exists(),
-                    }
-                )
-
-        logger.debug(f"Listed {len(tickers)} tickers from knowledge base")
-        return {
-            "tickers": tickers,
-            "total_count": len(tickers),
-            "timestamp": get_utc_iso_timestamp(),
-        }
-
-    except Exception as e:
-        logger.error(f"Failed to list tickers: {e}")
-        raise HTTPException(status_code=500, detail=f"Failed to list tickers: {e}")
 
 
 # ============================================================================

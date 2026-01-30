@@ -1,5 +1,19 @@
 // Application constants
 
+// Build WebSocket URL dynamically:
+// 1. Use VITE_WS_URL env var if available
+// 2. Otherwise construct from current window location
+const getWebSocketUrl = (): string => {
+  if (import.meta.env.VITE_WS_URL) {
+    return import.meta.env.VITE_WS_URL
+  }
+  // Fallback: construct from current host
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  const host = window.location.hostname
+  const port = import.meta.env.VITE_API_PORT || '8061'
+  return `${protocol}//${host}:${port}/ws`
+}
+
 export const API_ENDPOINTS = {
   HEALTH: '/api/health',
   CONFIG: '/api/config',
@@ -7,7 +21,7 @@ export const API_ENDPOINTS = {
   TICKERS: '/api/tickers',
   OPTION_CHAIN: '/api/options/chain',
   STRATEGIES: '/api/strategies',
-  WEBSOCKET: 'ws://localhost:8061/ws'
+  WEBSOCKET: getWebSocketUrl()
 }
 
 export const ALERT_TYPES = {

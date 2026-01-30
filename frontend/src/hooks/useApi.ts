@@ -40,6 +40,10 @@ export const useApi = <T,>(
   const { immediate = true, dependencies = [], onSuccess, onError, interval } = options
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
+  // Serialize dependencies to a stable string key for comparison
+  // This avoids issues with spreading arrays in useEffect dependencies
+  const depsKey = JSON.stringify(dependencies)
+
   const [state, setState] = useState<UseApiState<T>>({
     data: null,
     loading: false,
@@ -73,7 +77,8 @@ export const useApi = <T,>(
         clearInterval(intervalRef.current)
       }
     }
-  }, [immediate, fetchData, interval, ...dependencies])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [immediate, fetchData, interval, depsKey])
 
   return {
     ...state,
@@ -289,7 +294,6 @@ export const useOptionExpirations = (ticker: string): UseApiState<string[]> & { 
     loading: false,
     error: null
   })
-  const apiClient = require('@utils/apiClient').default
 
   const fetchExpirations = useCallback(async () => {
     if (!ticker) {
