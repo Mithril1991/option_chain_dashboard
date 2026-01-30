@@ -1,16 +1,16 @@
 import { create } from 'zustand'
-import { ConfigStatus, HealthStatus } from '@types/api'
+import { ConfigStatus, HealthResponse } from '@types/api'
 
 interface ConfigState {
   config: ConfigStatus | null
-  health: HealthStatus | null
+  health: HealthResponse | null
   loading: boolean
   error: string | null
   lastUpdated: string | null
 
   // Actions
   setConfig: (config: ConfigStatus) => void
-  setHealth: (health: HealthStatus) => void
+  setHealth: (health: HealthResponse) => void
   setLoading: (loading: boolean) => void
   setError: (error: string | null) => void
   updateLastUpdated: () => void
@@ -57,6 +57,6 @@ export const useConfigStore = create<ConfigState>((set, get) => ({
 
   isHealthy: () => {
     const { health } = get()
-    return health?.status === 'healthy'
+    return health?.status === 'ok'
   }
 }))

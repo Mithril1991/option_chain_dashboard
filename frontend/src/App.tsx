@@ -14,7 +14,7 @@ import OptionChains from '@pages/OptionChains'
 import StrategyExplorer from '@pages/StrategyExplorer'
 import ConfigStatus from '@pages/ConfigStatus'
 
-import { HealthStatus } from '@types/api'
+import { HealthResponse } from '@types/api'
 
 import '@styles/tailwind.css'
 import '@styles/globals.css'
@@ -30,7 +30,7 @@ import '@styles/globals.css'
  */
 export const App: React.FC = () => {
   const { setHealth } = useConfigStore()
-  const { data: health } = useApi<HealthStatus>('/api/health')
+  const { data: health } = useApi<HealthResponse>('/health')
 
   // Update global health status when API responds
   useEffect(() => {
