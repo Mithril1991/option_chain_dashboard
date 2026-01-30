@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useRef } from 'react'
 import { useHealthCheckIntegration } from '@hooks/useApiIntegration'
 import { formatDate, formatRelativeTime, formatUptime } from '@utils/formatters'
 import apiClient from '@utils/apiClient'
@@ -343,17 +343,21 @@ const APIStatusSection: React.FC = () => {
   const [lastRefresh, setLastRefresh] = useState(new Date())
   const [autoRefreshActive, setAutoRefreshActive] = useState(true)
 
+  // Use ref to store latest refetch function to avoid recreating interval
+  const refetchRef = useRef(refetch)
+  refetchRef.current = refetch
+
   // Auto-refresh every 30 seconds
   useEffect(() => {
     if (!autoRefreshActive) return
 
     const interval = setInterval(() => {
-      refetch()
+      refetchRef.current()
       setLastRefresh(new Date())
     }, 30000)
 
     return () => clearInterval(interval)
-  }, [autoRefreshActive, refetch])
+  }, [autoRefreshActive])  // refetch removed from deps, using ref instead
 
   const handleManualRefresh = () => {
     refetch()
