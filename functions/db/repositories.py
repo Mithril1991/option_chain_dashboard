@@ -79,21 +79,19 @@ class ScanRepository(BaseRepository):
             RuntimeError: If database operation fails
         """
         try:
-            # Use RETURNING id to get the auto-generated ID back from DuckDB
+            # Get next ID manually (DuckDB sequence/DEFAULT may not work reliably)
+            max_result = self.db.execute("SELECT COALESCE(MAX(id), 0) + 1 FROM scans")
+            next_id = max_result.fetchone()[0]
+
+            # Insert with explicit ID
             sql = """
-                INSERT INTO scans (scan_ts, config_hash, status, created_at)
-                VALUES (CURRENT_TIMESTAMP, ?, 'pending', CURRENT_TIMESTAMP)
-                RETURNING id
+                INSERT INTO scans (id, scan_ts, config_hash, status, created_at)
+                VALUES (?, CURRENT_TIMESTAMP, ?, 'pending', CURRENT_TIMESTAMP)
             """
-            result = self.db.execute(sql, [config_hash])
-            row = result.fetchone()
-            scan_id = row[0] if row else None
+            self.db.execute(sql, [next_id, config_hash])
 
-            if scan_id is None:
-                raise RuntimeError("Failed to retrieve inserted scan ID")
-
-            logger.info(f"Created scan record: id={scan_id}, config_hash={config_hash[:8]}")
-            return scan_id
+            logger.info(f"Created scan record: id={next_id}, config_hash={config_hash[:8]}")
+            return next_id
 
         except Exception as e:
             logger.error(f"Failed to create scan: {e}")
