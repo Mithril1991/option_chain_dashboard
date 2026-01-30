@@ -115,10 +115,10 @@ export const Header: React.FC = () => {
             <p className="text-xs text-gray-400">Data Mode</p>
             <p
               className={`text-xs sm:text-sm font-medium ${
-                config?.provider === 'demo' ? 'text-yellow-400' : 'text-blue-400'
+                health?.data_mode === 'demo' ? 'text-yellow-400' : 'text-blue-400'
               }`}
             >
-              {config?.provider === 'demo' ? 'Demo' : 'Production'}
+              {health?.data_mode === 'demo' ? 'Demo' : 'Production'}
             </p>
           </div>
 
