@@ -95,6 +95,7 @@ export interface OptionContract {
 export interface ChainSnapshot {
   ticker: string
   expiration: string
+  underlyingPrice: number
   calls: OptionContract[]
   puts: OptionContract[]
 }

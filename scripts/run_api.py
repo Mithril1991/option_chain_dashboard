@@ -467,14 +467,18 @@ class ChainSnapshotResponse(BaseModel):
     """Options chain snapshot response model.
 
     IMPORTANT: This model must match frontend/src/types/api.ts ChainSnapshot interface.
-    Frontend expects: ticker, expiration, calls[], puts[]
-    Extra fields like timestamp and underlying_price are excluded to match frontend contract.
     """
 
     ticker: str = Field(..., description="Stock ticker symbol")
     expiration: str = Field(..., description="Option expiration date (YYYY-MM-DD)")
+    underlyingPrice: float = Field(0, alias="underlying_price", description="Current price of underlying stock")
     calls: List[OptionContractResponse] = Field(..., description="Call option contracts")
     puts: List[OptionContractResponse] = Field(..., description="Put option contracts")
+
+    class Config:
+        """Pydantic config for response serialization."""
+        populate_by_name = True
+        extra = "ignore"  # Ignore extra fields like timestamp during construction
 
 
 class FeaturesResponse(BaseModel):
