@@ -1,4 +1,4 @@
-import React, { useState, useMemo } from 'react'
+import React, { useState, useMemo, useEffect } from 'react'
 import { useOptionChainIntegration, useLatestAlertsIntegration } from '@hooks/useApiIntegration'
 import { useOptionExpirations } from '@hooks/useApi'
 import { useUIStore } from '@store/uiStore'
@@ -35,6 +35,15 @@ export const OptionChains: React.FC = () => {
   const [callsSortDir, setCallsSortDir] = useState<SortDirection>('asc')
   const [putsSortBy, setPutsSortBy] = useState<SortField>('strike')
   const [putsSortDir, setPutsSortDir] = useState<SortDirection>('asc')
+  const [hasInitializedTicker, setHasInitializedTicker] = useState(false)
+
+  // Update ticker when alerts load (recentTickers becomes available)
+  useEffect(() => {
+    if (!hasInitializedTicker && recentTickers.length > 0) {
+      setTicker(recentTickers[0])
+      setHasInitializedTicker(true)
+    }
+  }, [recentTickers, hasInitializedTicker])
 
   // Fetch available expirations for ticker
   const { data: expirationsList = [] } = useOptionExpirations(ticker)
