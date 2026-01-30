@@ -25,7 +25,7 @@ export const Dashboard: React.FC = () => {
   }, [alertsSummary])
 
   // Calculate metrics
-  const totalAlertsToday = alertsSummary?.alerts.length || 0
+  const totalAlertsToday = alertsSummary?.total_count || 0
   const highScoreAlerts = alertsSummary?.alerts.filter((a) => a.score > 75).length || 0
   const systemHealthy = health?.status === 'ok'
   const isApiConnected = !healthError && health?.status === 'ok'
