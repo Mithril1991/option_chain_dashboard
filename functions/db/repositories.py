@@ -877,8 +877,12 @@ class IVHistoryRepository(BaseRepository):
     """
 
     def __init__(self):
-        """Initialize IVHistoryRepository."""
-        pass
+        """Initialize IVHistoryRepository.
+
+        Calls super().__init__() to properly initialize self.db with the
+        DuckDB connection from get_db().
+        """
+        super().__init__()
 
     def save_iv(
         self,
