@@ -293,8 +293,8 @@ export const OptionChains: React.FC = () => {
                 <p className="text-xl md:text-2xl font-bold text-gray-900">${formatPrice(chain.underlyingPrice)}</p>
               </div>
               <div>
-                <p className="text-sm text-gray-600">Data Updated</p>
-                <p className="text-sm text-gray-900">{formatRelativeTime(chain.expiration)}</p>
+                <p className="text-sm text-gray-600">Expiration</p>
+                <p className="text-sm text-gray-900">{chain.expiration}</p>
               </div>
               <div>
                 <button
