@@ -211,10 +211,16 @@ export const useHealthCheck = (): UseApiState<HealthResponse> & { refetch: () =>
 
 /**
  * Fetch latest alerts with optional limit
+ * Note: API returns {alerts: [], total_count, timestamp} - we extract the alerts array
  */
 export const useLatestAlerts = (limit: number = 50): UseApiState<AlertResponse[]> & { refetch: () => Promise<void> } => {
   const url = `/alerts/latest?limit=${limit}`
-  return useApi<AlertResponse[]>(url, { immediate: true })
+  const response = useApi<{ alerts: AlertResponse[], total_count: number, timestamp: string }>(url, { immediate: true })
+
+  return {
+    ...response,
+    data: response.data?.alerts ?? null
+  }
 }
 
 /**
