@@ -181,12 +181,31 @@ const WatchlistSection: React.FC = () => {
     fetchWatchlist()
   }, [])
 
-  const handleCopyToClipboard = () => {
+  const handleCopyToClipboard = async () => {
     if (watchlist && watchlist.tickers.length > 0) {
       const tickerList = watchlist.tickers.join(', ')
-      navigator.clipboard.writeText(tickerList)
-      setCopied(true)
-      setTimeout(() => setCopied(false), 2000)
+      try {
+        await navigator.clipboard.writeText(tickerList)
+        setCopied(true)
+        setTimeout(() => setCopied(false), 2000)
+      } catch (err) {
+        // Fallback for older browsers or when clipboard API fails
+        const textArea = document.createElement('textarea')
+        textArea.value = tickerList
+        textArea.style.position = 'fixed'
+        textArea.style.left = '-9999px'
+        document.body.appendChild(textArea)
+        textArea.select()
+        try {
+          document.execCommand('copy')
+          setCopied(true)
+          setTimeout(() => setCopied(false), 2000)
+        } catch (fallbackErr) {
+          logger.error(`Failed to copy to clipboard: ${fallbackErr}`)
+          setError('Failed to copy to clipboard')
+        }
+        document.body.removeChild(textArea)
+      }
     }
   }
 
@@ -509,7 +528,7 @@ const APIStatusSection: React.FC = () => {
 
           {/* Health Status Summary */}
           <div className={`p-4 rounded-lg border ${
-            health.status === 'healthy'
+            health.status === 'ok' || health.status === 'healthy'
               ? 'bg-green-50 border-green-200'
               : health.status === 'degraded'
               ? 'bg-yellow-50 border-yellow-200'
@@ -518,30 +537,34 @@ const APIStatusSection: React.FC = () => {
             <div className="flex items-center justify-between mb-2">
               <p className="font-semibold text-gray-900">Overall Health</p>
               <span className={`px-3 py-1 rounded-full text-xs font-bold uppercase ${
-                health.status === 'healthy'
+                health.status === 'ok' || health.status === 'healthy'
                   ? 'bg-green-200 text-green-900'
                   : health.status === 'degraded'
                   ? 'bg-yellow-200 text-yellow-900'
                   : 'bg-red-200 text-red-900'
               }`}>
-                {health.status}
+                {health.status === 'ok' ? 'OK' : health.status}
               </span>
             </div>
             <p className={`text-sm ${
-              health.status === 'healthy'
+              health.status === 'ok' || health.status === 'healthy'
                 ? 'text-green-700'
                 : health.status === 'degraded'
                 ? 'text-yellow-700'
                 : 'text-red-700'
             }`}>
-              {health.message}
+              {health.message || 'All systems operational'}
             </p>
           </div>
 
           {/* Last Check Time */}
-          <p className="text-xs text-gray-500 text-right">
-            Last checked: {formatRelativeTime(new Date(lastRefresh))}
-          </p>
+          <div className="flex items-center justify-between text-xs text-gray-500 pt-2 border-t border-gray-200">
+            <span>Auto-refresh: {autoRefreshActive ? 'Every 30s' : 'Off'}</span>
+            <span className="flex items-center gap-1">
+              <span className={`w-2 h-2 rounded-full ${loading ? 'bg-blue-500 animate-pulse' : 'bg-gray-400'}`}></span>
+              Last checked: {formatRelativeTime(lastRefresh)}
+            </span>
+          </div>
         </div>
       ) : null}
     </div>
