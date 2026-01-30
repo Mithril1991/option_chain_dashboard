@@ -421,7 +421,6 @@ export const AlertFeed: React.FC = () => {
             >
               <option value="score_desc">Score (High to Low)</option>
               <option value="date_newest">Date (Newest)</option>
-              <option value="confidence">Confidence</option>
             </select>
           </div>
 
@@ -468,9 +467,6 @@ export const AlertFeed: React.FC = () => {
                     Score
                   </th>
                   <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
-                    Confidence
-                  </th>
-                  <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">
                     Timestamp
                   </th>
                 </tr>
@@ -492,9 +488,6 @@ export const AlertFeed: React.FC = () => {
                       <span className={`inline-flex items-center px-3 py-1 rounded-full text-sm font-medium ${getScoreColor(alert.score)}`}>
                         {alert.score.toFixed(1)}
                       </span>
-                    </td>
-                    <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-700">
-                      {(alert.score > 75 ? 'High' : alert.score > 50 ? 'Medium' : 'Low')}
                     </td>
                     <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-600">
                       {formatRelativeTime(alert.created_at)}
@@ -528,7 +521,7 @@ export const AlertFeed: React.FC = () => {
                 <div className="space-y-2 text-sm">
                   <div>
                     <p className="text-gray-600">
-                      <strong>Confidence:</strong> {alert.score > 75 ? 'High' : alert.score > 50 ? 'Medium' : 'Low'}
+                      <strong>Score Level:</strong> {alert.score > 75 ? 'High' : alert.score > 50 ? 'Medium' : 'Low'}
                     </p>
                   </div>
                   <p className="text-gray-500 text-xs">
