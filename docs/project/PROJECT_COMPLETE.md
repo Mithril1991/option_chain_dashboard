@@ -274,7 +274,7 @@ option_chain_dashboard/
 ├── tests/                 # 30+ integration tests
 ├── data/                  # DuckDB database
 ├── logs/                  # Rotating logs
-├── inputs/                # Configuration files
+├── config.yaml            # Configuration file
 └── docs/                  # Documentation
 ```
 
@@ -408,7 +408,7 @@ pytest tests/tech/integration/test_mvp_end_to_end.py -v
 
 ### For System Operation
 1. Read PROJECT_COMPLETE.md (this file) for overview
-2. Review inputs/config.yaml for configuration
+2. Review config.yaml for configuration
 3. Check logs/ for system health
 4. Monitor via ConfigStatus page (http://localhost:8060/config)
 

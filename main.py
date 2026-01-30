@@ -10,7 +10,7 @@ All systems start successfully or the application exits with an error. Graceful
 shutdown is enforced with signal handlers and timeout protection.
 
 Usage:
-    # Default configuration (inputs/config.yaml, production mode)
+    # Default configuration (config.yaml, production mode)
     python main.py
 
     # With demo mode and debug logging
@@ -20,7 +20,7 @@ Usage:
     python main.py --config-path /path/to/config.yaml
 
 CLI Arguments:
-    --config-path: Path to configuration YAML file (default: inputs/config.yaml)
+    --config-path: Path to configuration YAML file (default: config.yaml)
     --demo-mode: Use demo/mock data instead of live market data
     --debug: Enable DEBUG level logging (default: INFO)
 
@@ -483,7 +483,7 @@ Python Version:     {sys.version.split()[0]}
         config_hash, demo_mode = load_configuration(args.config_path)
 
         # Print startup banner
-        print_startup_banner("inputs/config.yaml", demo_mode, config_hash)
+        print_startup_banner("config.yaml", demo_mode, config_hash)
 
         # Start scheduler engine
         scheduler_task = await start_scheduler_engine()
@@ -560,8 +560,8 @@ Examples:
     parser.add_argument(
         "--config-path",
         type=str,
-        default=os.getenv("CONFIG_PATH", "inputs/config.yaml"),
-        help="Path to configuration YAML file (default: inputs/config.yaml)",
+        default=os.getenv("CONFIG_PATH", "config.yaml"),
+        help="Path to configuration YAML file (default: config.yaml)",
     )
 
     parser.add_argument(
