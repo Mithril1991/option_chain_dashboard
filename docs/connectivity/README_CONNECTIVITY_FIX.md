@@ -26,7 +26,7 @@ When accessing the dashboard from a different machine on the network:
 
 ## Documents in This Analysis
 
-### 1. **CONNECTIVITY_SUMMARY.txt** (START HERE)
+### 1. **../archive/CONNECTIVITY_SUMMARY.txt** (START HERE)
    - Quick overview of the problem
    - Root causes explained simply
    - What's working vs what's broken
@@ -287,7 +287,7 @@ curl -X POST "http://192.168.1.16:8061/config/data-mode?mode=production"
 
 ## Next Steps
 
-1. **Read**: Start with `CONNECTIVITY_SUMMARY.txt`
+1. **Read**: Start with `../archive/CONNECTIVITY_SUMMARY.txt`
 2. **Understand**: Read `CONNECTIVITY_ANALYSIS.md` for technical details
 3. **Visualize**: Review `CONNECTIVITY_DIAGRAMS.md` for diagrams
 4. **Implement**: Follow `CONNECTIVITY_FIX_CHECKLIST.md` step-by-step
@@ -310,7 +310,7 @@ curl -X POST "http://192.168.1.16:8061/config/data-mode?mode=production"
 
 Each document answers different questions:
 
-- **"What's wrong?"** → CONNECTIVITY_SUMMARY.txt
+- **"What's wrong?"** → ../archive/CONNECTIVITY_SUMMARY.txt
 - **"Why is it wrong?"** → CONNECTIVITY_ANALYSIS.md
 - **"Show me visually"** → CONNECTIVITY_DIAGRAMS.md
 - **"How do I fix it?"** → CONNECTIVITY_FIX_CHECKLIST.md

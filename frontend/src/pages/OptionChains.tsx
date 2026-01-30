@@ -290,7 +290,7 @@ export const OptionChains: React.FC = () => {
               </div>
               <div>
                 <p className="text-sm text-gray-600">Price</p>
-                <p className="text-xl md:text-2xl font-bold text-gray-900">${formatPrice(chain.ticker === chain.ticker ? 100 : 100)}</p>
+                <p className="text-xl md:text-2xl font-bold text-gray-900">${formatPrice(chain.underlyingPrice)}</p>
               </div>
               <div>
                 <p className="text-sm text-gray-600">Data Updated</p>

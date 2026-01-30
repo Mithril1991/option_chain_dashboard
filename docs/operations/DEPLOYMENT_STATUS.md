@@ -92,7 +92,7 @@ python main.py --demo-mode
 - `PROGRESS_SUMMARY.md` - Complete session summary
 - `README_CONNECTIVITY_FIX.md` - Network troubleshooting guide
 - `TICKERS_KNOWLEDGE_BASE.md` - Per-ticker knowledge base
-- `TEST_RESULTS.txt` - End-to-end test results
+- `../archive/TEST_RESULTS.txt` - End-to-end test results
 - `git log` - All commits with detailed reasoning
 
 ## ⏳ Remaining Tasks

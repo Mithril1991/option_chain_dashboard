@@ -24,13 +24,13 @@ NAVIGATION GUIDE:
    Audience: Everyone (start here)
    Use case: Quick reference, stakeholder updates
    
-2. TEST_RESULTS.txt
+2. ../archive/TEST_RESULTS.txt
    Purpose:  One-page quick reference
    Size:     4.1K
    Audience: Technical users wanting quick status
    Use case: Fast status checks, executive summaries
    
-3. E2E_TEST_SUMMARY.txt
+3. ../archive/E2E_TEST_SUMMARY.txt
    Purpose:  Detailed breakdown by category
    Size:     4.8K
    Audience: Technical reviewers
@@ -164,10 +164,10 @@ Quick Status Check (5 minutes):
   → Read: README_TEST_RESULTS.md
 
 Quick Reference (1 minute):
-  → Read: TEST_RESULTS.txt
+  → Read: ../archive/TEST_RESULTS.txt
 
 Technical Review (15 minutes):
-  → Read: E2E_TEST_SUMMARY.txt
+  → Read: ../archive/E2E_TEST_SUMMARY.txt
 
 Deep Analysis (30+ minutes):
   → Read: E2E_TEST_REPORT.md
@@ -232,10 +232,10 @@ Quick Navigation:
   cat /mnt/shared_ubuntu/Claude/Projects/option_chain_dashboard/README_TEST_RESULTS.md
 
 Quick Status:
-  cat /mnt/shared_ubuntu/Claude/Projects/option_chain_dashboard/TEST_RESULTS.txt
+  cat /mnt/shared_ubuntu/Claude/Projects/option_chain_dashboard/docs/archive/TEST_RESULTS.txt
 
 Detailed Summary:
-  cat /mnt/shared_ubuntu/Claude/Projects/option_chain_dashboard/E2E_TEST_SUMMARY.txt
+  cat /mnt/shared_ubuntu/Claude/Projects/option_chain_dashboard/docs/archive/E2E_TEST_SUMMARY.txt
 
 Full Report:
   cat /mnt/shared_ubuntu/Claude/Projects/option_chain_dashboard/E2E_TEST_REPORT.md
