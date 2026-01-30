@@ -355,7 +355,7 @@ curl -i http://localhost:8061/tickers/NONEXISTENT/thesis
 Run the test script:
 ```bash
 source venv/bin/activate
-python test_theses_api.py
+python scripts/testing/test_theses_api.py
 ```
 
 **Tests Included**:
@@ -463,7 +463,7 @@ The per-ticker knowledge base is now **fully implemented and ready to use**:
 **Test the API**:
 ```bash
 source venv/bin/activate
-python test_theses_api.py
+python scripts/testing/test_theses_api.py
 ```
 
 **Next**: Integrate with frontend (Streamlit) to display theses in UI

@@ -138,8 +138,8 @@ tickers/
 - **Response Model**: ThesisResponse (ticker, file_type, content, timestamp)
 
 ### Testing & Documentation
-- **Test Script**: test_theses_api.py (200 lines)
-- **Guide**: TICKERS_KNOWLEDGE_BASE.md (comprehensive implementation guide)
+- **Test Script**: scripts/testing/test_theses_api.py (200 lines)
+- **Guide**: docs/tickers/TICKERS_KNOWLEDGE_BASE.md (comprehensive implementation guide)
 - **Summary**: IMPLEMENTATION_SUMMARY.md (this file)
 
 ---
@@ -175,7 +175,7 @@ tickers/
 
 ## Test Coverage
 
-**Test Script**: `/mnt/shared_ubuntu/Claude/Projects/option_chain_dashboard/test_theses_api.py`
+**Test Script**: `/mnt/shared_ubuntu/Claude/Projects/option_chain_dashboard/scripts/testing/test_theses_api.py`
 
 **Tests Included** (7 scenarios):
 1. GET /tickers/list returns all 5 tickers
@@ -189,7 +189,7 @@ tickers/
 **Run Tests**:
 ```bash
 source venv/bin/activate
-python test_theses_api.py
+python scripts/testing/test_theses_api.py
 ```
 
 ---
@@ -259,8 +259,8 @@ All files created at:
 - `/mnt/shared_ubuntu/Claude/Projects/option_chain_dashboard/scripts/run_api.py` (modified; lines 1636-1998)
 
 **Testing & Documentation**:
-- `/mnt/shared_ubuntu/Claude/Projects/option_chain_dashboard/test_theses_api.py` (test script)
-- `/mnt/shared_ubuntu/Claude/Projects/option_chain_dashboard/TICKERS_KNOWLEDGE_BASE.md` (implementation guide)
+- `/mnt/shared_ubuntu/Claude/Projects/option_chain_dashboard/scripts/testing/test_theses_api.py` (test script)
+- `/mnt/shared_ubuntu/Claude/Projects/option_chain_dashboard/docs/tickers/TICKERS_KNOWLEDGE_BASE.md` (implementation guide)
 - `/mnt/shared_ubuntu/Claude/Projects/option_chain_dashboard/IMPLEMENTATION_SUMMARY.md` (this summary)
 
 ---

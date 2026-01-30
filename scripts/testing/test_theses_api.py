@@ -13,7 +13,7 @@ This script:
 
 Run with:
     source venv/bin/activate
-    python test_theses_api.py
+    python scripts/testing/test_theses_api.py
 
 Note: Requires the API server to be running on port 8061
 """
