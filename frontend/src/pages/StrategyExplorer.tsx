@@ -406,11 +406,17 @@ const LineChart: React.FC<LineChartProps> = ({ data, title }) => {
     (x) => x >= minPrice && x <= maxPrice
   )
   if (xLabels.length < 2) {
-    // Fallback if data doesn't include these values
-    for (let i = 0; i < 3; i++) {
-      const value = minPrice + (maxPrice - minPrice) / 2 * i
-      if (!xLabels.includes(value)) xLabels.push(Math.round(value))
+    // Fallback: generate 3 evenly spaced labels across the price range
+    const labelCount = 3
+    for (let i = 0; i < labelCount; i++) {
+      const value = Math.round(minPrice + (maxPrice - minPrice) * i / (labelCount - 1))
+      // Avoid duplicates using rounded comparison
+      if (!xLabels.some(existing => Math.round(existing) === value)) {
+        xLabels.push(value)
+      }
     }
+    // Sort to ensure proper order after adding fallback values
+    xLabels.sort((a, b) => a - b)
   }
 
   return (
