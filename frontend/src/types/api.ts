@@ -71,6 +71,15 @@ export interface AlertsSummaryResponse {
 }
 
 /**
+ * Full alerts list response from /alerts/latest endpoint
+ */
+export interface AlertsListResponse {
+  alerts: AlertResponse[]
+  total_count: number
+  timestamp: string
+}
+
+/**
  * Option contract in a chain snapshot
  */
 export interface OptionContract {
